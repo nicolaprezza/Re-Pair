@@ -9,6 +9,7 @@
  *
  *      pop(): remove and return the first element from the list. Complexity: O(1)
  *      popmax(): remove and return the max element from the list (uses the comparator). Complexity: linear
+ *      min()/max(): return pair ab with the lowest/largest frequency F_ab
  *      insert(x) insert x on top of the list. Return a pointer (integer) to x. The pointer is relative and refers
  *                to allocated slots in the list. Complexity: O(1)
  *                if there isn't enough allocated space, we increase the allocated space by 50%: alloc' <- alloc * 3/2. In this case,
@@ -32,10 +33,14 @@ using namespace std;
 #ifndef INTERNAL_LL_VEC_HPP_
 #define INTERNAL_LL_VEC_HPP_
 
-template<typename t, typename itype = uint32_t>
+template<typename t = ll_el32_t, typename itype = uint32_t, typename ctype = uint32_t>
 class ll_vec{
 
+using cpair = pair<ctype,ctype>;
+
 public:
+
+	using el_type = t;
 
 	/*
 	 * constructor: initialize empty list, allocate memory for 1 element.
@@ -59,9 +64,9 @@ public:
 
 
 	/*
-	 * return element stored at position i (could be null
+	 * return reference to element stored at position i (could be null
 	 */
-	t operator[](itype i){
+	t & operator[](itype i){
 
 		assert(i < capacity());
 		return V[i];
@@ -121,7 +126,7 @@ public:
 
 		while(next != null){
 
-			assert(V[curr] != t::null);
+			assert(not V[curr].is_null());
 
 			//jump to next element
 			prev = curr;
@@ -175,6 +180,88 @@ public:
 		n--;
 
 		return el;
+
+	}
+
+	/*
+	 * linear-scan the array and retrieve pair with smallest F_ab
+	 */
+	t min(){
+
+		assert(size()>0);
+		assert(first_el != null);
+
+		itype curr = first_el;
+		itype next = next_el[curr];
+
+		//minimum is the first at the beginning
+		itype curr_m = curr;
+		itype next_m = next;
+
+		while(next != null){
+
+			assert(not V[curr].is_null());
+
+			//jump to next element
+			curr = next;
+			next = next_el[next];
+
+			if(V[curr] < V[curr_m]){
+
+				//new max
+
+				curr_m = curr;
+				next_m = next;
+
+			}
+
+		}
+
+		//this is the min element
+		t el = V[curr_m];
+
+		return el.ab;
+
+	}
+
+	/*
+	 * linear-scan the array and retrieve pair with largest F_ab
+	 */
+	t max(){
+
+		assert(size()>0);
+		assert(first_el != null);
+
+		itype curr = first_el;
+		itype next = next_el[curr];
+
+		//minimum is the first at the beginning
+		itype curr_m = curr;
+		itype next_m = next;
+
+		while(next != null){
+
+			assert(not V[curr].is_null());
+
+			//jump to next element
+			curr = next;
+			next = next_el[next];
+
+			if(V[curr] > V[curr_m]){
+
+				//new max
+
+				curr_m = curr;
+				next_m = next;
+
+			}
+
+		}
+
+		//this is the min element
+		t el = V[curr_m];
+
+		return el.ab;
 
 	}
 
@@ -311,7 +398,7 @@ public:
 
 		if(n==0){
 
-			V = vector<t>(1,t::null);
+			V = vector<t>(1);
 
 			next_el = vector<itype>(1);
 			prev_el = vector<itype>(1);
@@ -368,6 +455,8 @@ public:
 
 		}
 
+		assert(capacity()==size());
+
 	}
 
 private:
@@ -390,8 +479,8 @@ private:
 
 };
 
-typedef ll_vec<ll_el32_t,uint32_t> ll_vec32_t;
-typedef ll_vec<ll_el64_t,uint64_t> ll_vec64_t;
+typedef ll_vec<ll_el32_t,uint32_t,uint32_t> ll_vec32_t;
+typedef ll_vec<ll_el64_t,uint64_t,uint32_t> ll_vec64_t;
 
 
 #endif /* INTERNAL_LL_VEC_HPP_ */

@@ -21,6 +21,8 @@ using namespace std;
 template<typename ctype = uint32_t, typename itype = uint32_t>
 class ll_el{
 
+using cpair = pair<ctype,ctype>;
+
 public:
 
 	ll_el(){}
@@ -46,7 +48,7 @@ public:
 	//this value is reserved to indicate NULL elements/pointers
 	const static itype null = ~itype(0);
 
-	pair<ctype,ctype> ab;
+	cpair ab;
 	itype P_ab = 0;
 	itype L_ab = 0;
 	itype F_ab = null;
