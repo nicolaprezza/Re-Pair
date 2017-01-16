@@ -9,11 +9,58 @@
  */
 
 #include <cassert>
+#include <functional>
 
 using namespace std;
 
 #ifndef INTERNAL_LL_EL_HPP_
 #define INTERNAL_LL_EL_HPP_
+
+/*
+ * define hash functions for pairs of (32-bits/64-bits) integers
+ */
+namespace std{
+
+template <>
+struct hash<pair<uint32_t,uint32_t> >{
+
+	std::size_t operator()(const pair<uint32_t,uint32_t>& k) const{
+
+		return hash<uint32_t>()(k.first) ^ hash<uint32_t>()(k.second);
+
+	}
+
+};
+
+template <>
+struct hash<pair<uint64_t,uint64_t> >{
+
+	std::size_t operator()(const pair<uint64_t,uint64_t>& k) const{
+
+		return hash<uint64_t>()(k.first) ^ hash<uint64_t>()(k.second);
+
+	}
+
+};
+
+}
+
+template<typename itype = uint32_t>
+struct triple{
+
+	triple(itype P_ab, 	itype L_ab,	itype F_ab){
+
+		this->P_ab = P_ab;
+		this->L_ab = L_ab;
+		this->F_ab = F_ab;
+
+	}
+
+	itype P_ab;
+	itype L_ab;
+	itype F_ab;
+
+};
 
 /*
  * template on the char type and on the integer type

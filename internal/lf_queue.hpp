@@ -1,17 +1,20 @@
 /*
- * hf_queue.hpp
+ * lf_queue.hpp
  *
- *  Created on: Jan 12, 2017
+ *  Created on: Jan 16, 2017
  *      Author: nico
  *
- *  High-frequency pairs queue
+ *  Low-frequency pairs queue
  *
- *  This queue is a pair Q = <H,B> of structures, where:
+ *  This queue is a triple Q = <F,H,B> of structures, where:
  *
+ *  . F: is a doubly-linked frequency vector indexing all possible pair frequencies smaller than
+ *    a pre-defoined quantity
  *  - H: sigma x sigma -> int is a hash table pointing at elements in B
- *  - B is a linked list storing all high-frequency pairs
+ *  - B is a set of linked list storing all high-frequency pairs. The set contains a linked list for each
+ *    distinct frequency of pairs stored in the queue
  *
- *  Supported operations:
+ *  Supported operations (all amortized constant time)
  *
  *  operator[ab]: return triple <P_ab, L_ab, F_ab> relative to pair ab
  *  max()/min()/head(): return pair ab with max/min F_ab or head pair in the list
@@ -24,24 +27,38 @@
  *
  */
 
+#ifndef INTERNAL_LF_QUEUE_HPP_
+#define INTERNAL_LF_QUEUE_HPP_
+
 #include <ll_vec.hpp>
 #include <unordered_map>
 #include <ll_el.hpp>
 
 using namespace std;
 
-#ifndef INTERNAL_HF_QUEUE_HPP_
-#define INTERNAL_HF_QUEUE_HPP_
+template<typename ll_type = ll_vec32_t>
+struct f_vec_el{
 
+	//linked list's pointers
+	uint64_t prev;
+	uint64_t next;
+
+	//coordinates of the pair in B
+	ll_type* list; //pointer to the list containing the pair
+	uint64_t offset; //offset of the pair inside its list
+
+};
 
 /*
  * template on linked list type and integer type
  */
 template<typename ll_type = ll_vec32_t, typename itype = uint32_t, typename ctype = uint32_t>
-class hf_queue{
+class lf_queue{
 
 using cpair = pair<ctype,ctype>;
-using hash_t = std::unordered_map<cpair, itype>;
+using ipair = pair<itype,itype>;
+
+using hash_t = std::unordered_map<cpair, ipair>;
 
 public:
 
@@ -52,10 +69,10 @@ public:
 	 * default constructor. Note that object must be created with the other constructor in order to be
 	 * usable (using object built with this constructor causes failed assertions)
 	 */
-	hf_queue(){
+	lf_queue(){
 
 		max_size = 0;
-		min_freq = 0;
+		max_freq = 0;
 
 	}
 
@@ -64,11 +81,11 @@ public:
 	 * frequency of a pair equal to min_frequency (included). If a pair'sfrequency
 	 * becomes strictly smaller than min_frequency, then the pair is removed from the queue
 	 */
-	hf_queue(itype max_size, itype min_freq) {
+	lf_queue(itype max_size, itype min_freq) {
 
 		assert(min_freq>1);
 
-		this->min_freq = min_freq;
+		this->max_freq = min_freq;
 		this->max_size = max_size;
 
 		H = hash_t(max_size*2);
@@ -84,9 +101,6 @@ public:
 		assert(max_size>0);
 		assert(contains(ab));
 
-		auto e = B[H[ab]];
-
-		return {e.P_ab, e.L_ab, e.F_ab};
 
 	}
 
@@ -94,10 +108,7 @@ public:
 
 		assert(max_size>0);
 
-		cpair p = B.min_pair();
-		assert(contains(p));
 
-		return p;
 
 	}
 
@@ -105,10 +116,7 @@ public:
 
 		assert(max_size>0);
 
-		cpair p = B.max_pair();
-		assert(contains(p));
 
-		return p;
 
 	}
 
@@ -116,10 +124,7 @@ public:
 
 		assert(max_size>0);
 
-		cpair p = B.first_pair();
-		assert(contains(p));
 
-		return p;
 
 	}
 
@@ -128,11 +133,7 @@ public:
 		assert(contains(ab));
 		assert(max_size>0);
 
-		B.remove(H[ab]);
-		H.erase(ab);
 
-		//if more than half of B's entries are empty, compact B.
-		if(B.size() < B.capacity()/2) compact_ll();
 
 	}
 
@@ -140,15 +141,13 @@ public:
 
 		assert(max_size>0);
 
-		return H.count(ab) == 1;
+
 
 	}
 
 	itype size(){
 
 		assert(max_size>0);
-
-		return B.size();
 
 	}
 
@@ -163,14 +162,7 @@ public:
 		//frequency must be >0, otherwise we would alredy have removed the pair
 		assert(B[H[ab]].F_ab>0);
 
-		B[H[ab]].F_ab--;
 
-		//if frequency becomes too small, remove pair
-		if(B[H[ab]].F_ab < min_freq){
-
-			remove(ab);
-
-		}
 
 	}
 
@@ -178,50 +170,15 @@ public:
 
 		assert(max_size>0);
 
-		cpair ab = el.ab;
 
-		//must not already contain ab
-		assert(not contains(ab));
-		//must meet requirement on minimum frequency
-		assert(el.F_ab >= min_freq);
-
-		itype idx = B.insert(el);
-
-		H.insert({ab,idx});
-		assert(H[ab]==idx);
-
-		assert(B[H[ab]].P_ab == el.P_ab);
-		assert(B[H[ab]].L_ab == el.L_ab);
-		assert(B[H[ab]].F_ab == el.F_ab);
-
-		//must not exceed max capacity
-		assert(size()<=max_size);
 
 	}
 
 private:
 
-	/*
-	 * compact memory used by the linked list and re-compute
-	 * pair's indexes
-	 */
-	void compact_ll(){
-
-		assert(max_size>0);
-
-		B.compact();
-
-		for(itype i=0;i<B.size();++i){
-
-			auto ab = B[i].ab;
-			H[ab] = i;
-
-		}
-
-	}
 
 	itype max_size;
-	itype min_freq;
+	itype max_freq;
 
 	ll_type B;
 	hash_t H;
@@ -233,5 +190,4 @@ private:
 typedef hf_queue<ll_vec32_t, uint32_t, uint32_t> hf_queue32_t;
 typedef hf_queue<ll_vec64_t, uint64_t, uint64_t> hf_queue64_t;
 
-
-#endif /* INTERNAL_HF_QUEUE_HPP_ */
+#endif /* INTERNAL_LF_QUEUE_HPP_ */
