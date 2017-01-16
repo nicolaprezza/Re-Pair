@@ -297,7 +297,7 @@ public:
 	 */
 	itype capacity(){
 
-		assert(V.capacity() == V.size());
+		assert(V.size() == 0 or V.capacity() == V.size());
 
 		return V.size();
 
@@ -358,6 +358,9 @@ public:
 			prev_el.resize(n);
 			std::vector<itype>(prev_el).swap(prev_el);
 
+			assert(next_el.capacity() == next_el.size());
+			assert(prev_el.capacity() == prev_el.size());
+
 			for(itype i=0;i<n;++i){
 
 				prev_el[i] = i==0 ? null : i-1;
@@ -367,7 +370,7 @@ public:
 
 		}
 
-		assert(capacity()==size());
+		assert(n == 0 or capacity()==size());
 
 	}
 

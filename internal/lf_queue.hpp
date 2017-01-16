@@ -6,13 +6,13 @@
  *
  *  Low-frequency pairs queue
  *
- *  This queue is a triple Q = <F,H,B> of structures, where:
+ *  This queue is a pair Q = <F,H> of structures, where:
  *
- *  . F: is a doubly-linked frequency vector indexing all possible pair frequencies smaller than
- *    a pre-defoined quantity
+ *  - F: is a doubly-linked frequency vector indexing all possible pair frequencies smaller than
+ *    a pre-defoined quantity. Each F's entry (frequency) is associated to a linked list containing all pairs
+ *    with that frequency
+ *
  *  - H: sigma x sigma -> int is a hash table pointing at elements in B
- *  - B is a set of linked list storing all high-frequency pairs. The set contains a linked list for each
- *    distinct frequency of pairs stored in the queue
  *
  *  Supported operations (all amortized constant time)
  *
@@ -39,13 +39,16 @@ using namespace std;
 template<typename ll_type = ll_vec32_t>
 struct f_vec_el{
 
-	//linked list's pointers
-	uint64_t prev;
-	uint64_t next;
+	const static uint64_t null = ~uint64_t(0);
 
-	//coordinates of the pair in B
-	ll_type* list; //pointer to the list containing the pair
-	uint64_t offset; //offset of the pair inside its list
+	//each F's element is associated to a frequency f: F[f] = this element
+
+	//linked list's pointers
+	uint64_t prev = null;
+	uint64_t next = null;
+
+	//list corresponding to frequency f
+	ll_type list;
 
 };
 
@@ -58,6 +61,7 @@ class lf_queue{
 using cpair = pair<ctype,ctype>;
 using ipair = pair<itype,itype>;
 
+//value of hash elements: pair <frequency, offset>. The element is accessed as F[frequency].list[offset]
 using hash_t = std::unordered_map<cpair, ipair>;
 
 public:
@@ -81,11 +85,11 @@ public:
 	 * frequency of a pair equal to min_frequency (included). If a pair'sfrequency
 	 * becomes strictly smaller than min_frequency, then the pair is removed from the queue
 	 */
-	lf_queue(itype max_size, itype min_freq) {
+	lf_queue(itype max_size, itype max_freq) {
 
-		assert(min_freq>1);
+		assert(max_freq>0);
 
-		this->max_freq = min_freq;
+		this->max_freq = max_freq;
 		this->max_size = max_size;
 
 		H = hash_t(max_size*2);
@@ -160,7 +164,6 @@ public:
 		assert(max_size>0);
 
 		//frequency must be >0, otherwise we would alredy have removed the pair
-		assert(B[H[ab]].F_ab>0);
 
 
 
@@ -176,18 +179,17 @@ public:
 
 private:
 
-
 	itype max_size;
 	itype max_freq;
 
-	ll_type B;
+	vector<f_vec_el<ll_type> > F;
 	hash_t H;
 
 	const static itype null = ~itype(0);
 
 };
 
-typedef hf_queue<ll_vec32_t, uint32_t, uint32_t> hf_queue32_t;
-typedef hf_queue<ll_vec64_t, uint64_t, uint64_t> hf_queue64_t;
+typedef lf_queue<ll_vec32_t, uint32_t, uint32_t> lf_queue32_t;
+typedef lf_queue<ll_vec64_t, uint64_t, uint64_t> lf_queue64_t;
 
 #endif /* INTERNAL_LF_QUEUE_HPP_ */

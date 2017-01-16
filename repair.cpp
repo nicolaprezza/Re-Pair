@@ -147,6 +147,14 @@ int main(int argc,char** argv) {
 
 	}
 
+	while(Q.size() > 0){
+
+		auto pp = Q.max();
+		Q.remove(pp);
+
+		cout << "size = " << Q.size() << endl;
+
+	}
 
 
 
