@@ -27,13 +27,21 @@ public:
 
 	ll_el(){}
 
-	ll_el(ctype a, ctype b){
+	ll_el(cpair ab){
 
-		ab.first = a;
-		ab.second = b;
+		this->ab = ab;
 
 		F_ab = 0;
 		L_ab = 0;
+
+	}
+
+	ll_el(cpair ab, itype P_ab, itype L_ab, itype F_ab){
+
+		this->ab = ab;
+		this->P_ab = P_ab;
+		this->L_ab = L_ab;
+		this->F_ab = F_ab;
 
 	}
 

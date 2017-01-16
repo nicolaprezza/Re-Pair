@@ -74,119 +74,23 @@ public:
 	}
 
 	/*
-	 * extract head of the list and remove it from the set
+	 * extract head of the list and return its corresponding pair
 	 */
-	t pop(){
-
-		if(size()==0) return t();
+	cpair first_pair(){
 
 		assert(size()>0);
 		assert(first_el != null);
 
-		assert(not V[first_el].is_null());
-
-		//we are popping the first element: save its position in temp variable
-		itype this_pos = first_el;
-
-		//read first element
 		t el = V[first_el];
-		//move pointer to the next element (could be null)
-		first_el = next_el[first_el];
 
-		//this position is empty, so now it points to next empty position
-
-		assert(this_pos<next_el.size());
-		next_el[this_pos] = first_empty;
-		//first empty position becomes this position
-		first_empty = this_pos;
-
-		//decrease size
-		n--;
-
-		return el;
-
-	}
-
-	/*
-	 * linear-scan the array and pop element with largest value
-	 */
-	t popmax(){
-
-		assert(size()>0);
-		assert(first_el != null);
-
-		itype prev = null;
-		itype curr = first_el;
-		itype next = next_el[curr];
-
-		//maximum is the first at the beginning
-		itype prev_m = prev;
-		itype curr_m = curr;
-		itype next_m = next;
-
-		while(next != null){
-
-			assert(not V[curr].is_null());
-
-			//jump to next element
-			prev = curr;
-			curr = next;
-			next = next_el[next];
-
-			if(V[curr_m] < V[curr]){
-
-				//new max
-
-				prev_m = prev;
-				curr_m = curr;
-				next_m = next;
-
-			}
-
-		}
-
-		//this is the maximum element
-		t el = V[curr_m];
-
-		//erase element
-		V[curr_m] = t();
-
-		//this position is now empty, so now it points to next empty position
-		next_el[curr_m] = first_empty;
-		//first empty position becomes this position
-		first_empty = curr_m;
-
-		//now we have to remove curr_m from the list of non-empty positions: link prev_m -> next_m
-
-		if(prev_m == null){
-
-			//in this case, curr_m was already the first element
-			assert(first_el == curr_m);
-
-			first_el = next_m;
-
-		}else{
-
-			//curr_m has a predecessor
-			next_el[prev_m] = next_m;
-
-			//curr_m might not have a successor
-			if(next_m != null)
-				prev_el[next_m] = prev_m;
-
-		}
-
-		//decrease size
-		n--;
-
-		return el;
+		return el.ab;
 
 	}
 
 	/*
 	 * linear-scan the array and retrieve pair with smallest F_ab
 	 */
-	t min(){
+	cpair min_pair(){
 
 		assert(size()>0);
 		assert(first_el != null);
@@ -227,7 +131,7 @@ public:
 	/*
 	 * linear-scan the array and retrieve pair with largest F_ab
 	 */
-	t max(){
+	cpair max_pair(){
 
 		assert(size()>0);
 		assert(first_el != null);
@@ -247,7 +151,7 @@ public:
 			curr = next;
 			next = next_el[next];
 
-			if(V[curr] > V[curr_m]){
+			if(V[curr_m] < V[curr]){
 
 				//new max
 
@@ -366,6 +270,14 @@ public:
 		first_el = insert_pos;
 
 		n++;
+
+		assert(V[insert_pos].P_ab == x.P_ab);
+		assert(V[insert_pos].L_ab == x.L_ab);
+		assert(V[insert_pos].F_ab == x.F_ab);
+
+		assert(operator[](insert_pos).P_ab == x.P_ab);
+		assert(operator[](insert_pos).L_ab == x.L_ab);
+		assert(operator[](insert_pos).F_ab == x.F_ab);
 
 		return insert_pos;
 

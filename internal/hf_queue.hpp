@@ -63,6 +63,23 @@ struct hash<pair<uint64_t,uint64_t> >{
 
 }
 
+template<typename itype = uint32_t>
+struct triple{
+
+	triple(itype P_ab, 	itype L_ab,	itype F_ab){
+
+		this->P_ab = P_ab;
+		this->L_ab = L_ab;
+		this->F_ab = F_ab;
+
+	}
+
+	itype P_ab;
+	itype L_ab;
+	itype F_ab;
+
+};
+
 /*
  * template on linked list type and integer type
  */
@@ -70,11 +87,12 @@ template<typename ll_type = ll_vec32_t, typename itype = uint32_t, typename ctyp
 class hf_queue{
 
 using cpair = pair<ctype,ctype>;
-using triple = std::tuple<itype, itype, itype>;
 using hash_t = std::unordered_map<cpair, itype>;
-using el_type = typename ll_type::el_type;
 
 public:
+
+	using triple_t = triple<itype>;
+	using el_type = typename ll_type::el_type;
 
 	/*
 	 * default constructor. Note that object must be created with the other constructor in order to be
@@ -108,11 +126,13 @@ public:
 	 * return triple <P_ab, L_ab, F_ab> relative to pair ab
 	 * complexity: O(1)
 	 */
-	triple operator[](cpair ab){
+	triple_t operator[](cpair ab){
 
 		assert(max_size>0);
+		assert(contains(ab));
 
 		auto e = B[H[ab]];
+
 		return {e.P_ab, e.L_ab, e.F_ab};
 
 	}
@@ -121,7 +141,10 @@ public:
 
 		assert(max_size>0);
 
-		return B.min();
+		cpair p = B.min_pair();
+		assert(contains(p));
+
+		return p;
 
 	}
 
@@ -129,12 +152,27 @@ public:
 
 		assert(max_size>0);
 
-		return B.max();
+		cpair p = B.max_pair();
+		assert(contains(p));
+
+		return p;
+
+	}
+
+	cpair head(){
+
+		assert(max_size>0);
+
+		cpair p = B.first_pair();
+		assert(contains(p));
+
+		return p;
 
 	}
 
 	void remove(cpair ab){
 
+		assert(contains(ab));
 		assert(max_size>0);
 
 		B.remove(H[ab]);
@@ -163,6 +201,7 @@ public:
 	 */
 	void decrease(cpair ab){
 
+		assert(contains(ab));
 		assert(max_size>0);
 
 		//frequency must be >0, otherwise we would alredy have removed the pair
@@ -193,9 +232,14 @@ public:
 		//must meet requirement on minimum frequency
 		assert(el.F_ab >= min_freq);
 
-		itype idx = B.insert(ab);
+		itype idx = B.insert(el);
 
 		H.insert({ab,idx});
+		assert(H[ab]==idx);
+
+		assert(B[H[ab]].P_ab == el.P_ab);
+		assert(B[H[ab]].L_ab == el.L_ab);
+		assert(B[H[ab]].F_ab == el.F_ab);
 
 		//must not exceed max capacity
 		assert(size()<=max_size);

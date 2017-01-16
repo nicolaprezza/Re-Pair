@@ -33,6 +33,8 @@ void help(){
 
 int main(int argc,char** argv) {
 
+	using triple = std::tuple<uint32_t, uint32_t,uint32_t>;
+
 	if(argc!=3) help();
 
 	string in(argv[1]);
@@ -47,7 +49,103 @@ int main(int argc,char** argv) {
 	cout << "Compressing file " << in << endl;
 	cout << "Saving output to files " << out_rp  << " and " << out_g << endl<<endl;
 
-	hf_queue32_t Q(5,9);
+	hf_queue32_t Q(5,5);
+
+	hf_queue32_t::el_type e {{'a','b'},1,5,12};
+	Q.insert(e);
+
+	e = {{'c','b'},2,3,9};
+	Q.insert(e);
+
+	e = {{'a','e'},1,2,10};
+	Q.insert(e);
+
+	e = {{'a','v'},4,2,7};
+	Q.insert(e);
+
+	e = {{'s','b'},6,1,9};
+	Q.insert(e);
+
+
+
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+
+
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		//Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+	Q.remove({'a','b'});
+
+	{
+		auto pp = Q.max();
+
+		hf_queue32_t::triple_t t = Q[pp];
+		cout << "max freq = " << t.F_ab << endl;
+
+	}
 
 
 
