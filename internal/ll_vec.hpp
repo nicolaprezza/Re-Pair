@@ -33,14 +33,19 @@ using namespace std;
 #ifndef INTERNAL_LL_VEC_HPP_
 #define INTERNAL_LL_VEC_HPP_
 
-template<typename t = ll_el32_t, typename itype = uint32_t, typename ctype = uint32_t>
+template<typename t = ll_el32_t>
 class ll_vec{
+
+using itype = typename t::int_type;
+using ctype = typename t::char_type;
 
 using cpair = pair<ctype,ctype>;
 
 public:
 
 	using el_type = t;
+	using int_type = itype;
+	using char_type = ctype;
 
 	/*
 	 * constructor: initialize empty list, allocate memory for 1 element.
@@ -64,7 +69,7 @@ public:
 
 
 	/*
-	 * return reference to element stored at position i (could be null
+	 * return reference to element stored at position i (could be null)
 	 */
 	t & operator[](itype i){
 
@@ -76,12 +81,14 @@ public:
 	/*
 	 * extract head of the list and return its corresponding pair
 	 */
-	cpair first_pair(){
+	cpair head(){
 
 		assert(size()>0);
 		assert(first_el != null);
 
 		t el = V[first_el];
+
+		assert(not el.is_null());
 
 		return el.ab;
 
@@ -124,6 +131,8 @@ public:
 		//this is the min element
 		t el = V[curr_m];
 
+		assert(not el.is_null());
+
 		return el.ab;
 
 	}
@@ -165,6 +174,8 @@ public:
 		//this is the min element
 		t el = V[curr_m];
 
+		assert(not el.is_null());
+
 		return el.ab;
 
 	}
@@ -177,6 +188,8 @@ public:
 		assert(i<V.size());
 		assert(size()>0);
 		assert(not V[i].is_null());
+		assert(n==0 or not V[first_el].is_null());
+		assert(first_el == null || prev_el[first_el] == null);
 
 		//insert null in this position
 		V[i] = t();
@@ -189,14 +202,26 @@ public:
 		//first empty position becomes this position
 		first_empty = i;
 
+		assert(first_el == null || prev_el[first_el] == null);
+
 		if(prev == null){
+
+			assert(next != null || n==1);
 
 			//in this case, i was the first element
 			assert(first_el == i);
 
 			first_el = next;
 
+			if(next != null)
+				prev_el[next] = null;
+
+			assert(first_el == null || prev_el[first_el] == null);
+
 		}else{
+
+			//if there is a predecessor, i cannot be the first element
+			assert(first_el != i);
 
 			//i has a predecessor
 			next_el[prev] = next;
@@ -205,10 +230,21 @@ public:
 			if(next != null)
 				prev_el[next] = prev;
 
+			assert(first_el == null || prev_el[first_el] == null);
+
 		}
+
+		assert(first_el == null || prev_el[first_el] == null);
 
 		//decrease size;
 		n--;
+
+		first_el = n==0 ? null : first_el;
+
+		assert(n>0 or first_el == null);
+		assert(n==0 or not V[first_el].is_null());
+		assert(first_el == null || prev_el[first_el] == null);
+
 
 	}
 
@@ -216,6 +252,9 @@ public:
 	 * insert new element x. return (relative) pointer to position where x is stored.
 	 */
 	itype insert(t x){
+
+		assert(n==0 or not V[first_el].is_null());
+		assert(first_el == null || prev_el[first_el] == null);
 
 		if(first_empty == null){ //if there is no space left
 
@@ -232,7 +271,11 @@ public:
 			V.resize(new_size);
 			V.shrink_to_fit();
 
+			assert(V.size()==V.capacity());
+
 			first_empty = old_size;
+
+			assert(V[first_empty].is_null());
 
 			next_el.resize(new_size);
 			next_el.shrink_to_fit();
@@ -249,12 +292,16 @@ public:
 
 		}
 
+		assert(first_empty != null);
+		assert(V[first_empty].is_null());
+
 		//now there is enough space to insert elements
 
 		//modify pointers of empty elements
 		auto insert_pos = first_empty;
 		first_empty = next_el[insert_pos];
 
+		assert(first_empty == null || V[first_empty].is_null());
 		assert(V[insert_pos].is_null());
 
 		//insert x
@@ -278,6 +325,11 @@ public:
 		assert(operator[](insert_pos).P_ab == x.P_ab);
 		assert(operator[](insert_pos).L_ab == x.L_ab);
 		assert(operator[](insert_pos).F_ab == x.F_ab);
+
+		assert(insert_pos < n);
+
+		assert(n==0 or not V[first_el].is_null());
+		assert(first_el == null || prev_el[first_el] == null);
 
 		return insert_pos;
 
@@ -333,6 +385,8 @@ public:
 				itype i = 0;
 
 				while(cur_pos != null){
+
+					cout << i << " / " << n << endl;
 
 					assert(i<n);
 
@@ -394,8 +448,8 @@ private:
 
 };
 
-typedef ll_vec<ll_el32_t,uint32_t,uint32_t> ll_vec32_t;
-typedef ll_vec<ll_el64_t,uint64_t,uint32_t> ll_vec64_t;
+typedef ll_vec<ll_el32_t> ll_vec32_t;
+typedef ll_vec<ll_el64_t> ll_vec64_t;
 
 
 #endif /* INTERNAL_LL_VEC_HPP_ */

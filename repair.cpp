@@ -11,6 +11,8 @@
 #include <vector>
 
 #include <hf_queue.hpp>
+#include <lf_queue.hpp>
+
 #include <ll_vec.hpp>
 #include <ll_el.hpp>
 
@@ -49,15 +51,21 @@ int main(int argc,char** argv) {
 	cout << "Compressing file " << in << endl;
 	cout << "Saving output to files " << out_rp  << " and " << out_g << endl<<endl;
 
-	hf_queue32_t Q(5,5);
+	lf_queue32_t Q(9,15);
 
-	hf_queue32_t::el_type e {{'a','b'},1,5,12};
+	Q.push_back_frequency(4);
+	Q.push_back_frequency(7);
+	Q.push_back_frequency(9);
+	Q.push_back_frequency(10);
+	Q.push_back_frequency(12);
+
+	lf_queue32_t::el_type e {{'a','b'},1,5,12};
 	Q.insert(e);
 
 	e = {{'c','b'},2,3,9};
 	Q.insert(e);
 
-	e = {{'a','e'},1,2,10};
+	e = {{'x','x'},1,2,10};
 	Q.insert(e);
 
 	e = {{'a','v'},4,2,7};
@@ -66,78 +74,24 @@ int main(int argc,char** argv) {
 	e = {{'s','b'},6,1,9};
 	Q.insert(e);
 
+	e = {{'a','e'},6,1,4};
+	Q.insert(e);
+
+	e = {{'a','m'},6,1,4};
+	Q.insert(e);
+
+	e = {{'m','m'},6,1,4};
+	Q.insert(e);
+
+	e = {{'n','m'},6,1,4};
+	Q.insert(e);
 
 
 
-	if(Q.contains({'a','e'})){
-
-		hf_queue32_t::triple_t t = Q[{'a','e'}];
-		cout << t.F_ab << endl;
-		Q.decrease({'a','e'});
-
-	}else{
-		cout << "does not contain" << endl;
-	}
 
 
 
-
-	if(Q.contains({'a','e'})){
-
-		hf_queue32_t::triple_t t = Q[{'a','e'}];
-		cout << t.F_ab << endl;
-		Q.decrease({'a','e'});
-
-	}else{
-		cout << "does not contain" << endl;
-	}
-
-
-	if(Q.contains({'a','e'})){
-
-		hf_queue32_t::triple_t t = Q[{'a','e'}];
-		cout << t.F_ab << endl;
-		Q.decrease({'a','e'});
-
-	}else{
-		cout << "does not contain" << endl;
-	}
-
-
-
-	if(Q.contains({'a','e'})){
-
-		hf_queue32_t::triple_t t = Q[{'a','e'}];
-		cout << t.F_ab << endl;
-		Q.decrease({'a','e'});
-
-	}else{
-		cout << "does not contain" << endl;
-	}
-
-
-
-	if(Q.contains({'a','e'})){
-
-		hf_queue32_t::triple_t t = Q[{'a','e'}];
-		cout << t.F_ab << endl;
-		Q.decrease({'a','e'});
-
-	}else{
-		cout << "does not contain" << endl;
-	}
-
-	if(Q.contains({'a','e'})){
-
-		hf_queue32_t::triple_t t = Q[{'a','e'}];
-		cout << t.F_ab << endl;
-		//Q.decrease({'a','e'});
-
-	}else{
-		cout << "does not contain" << endl;
-	}
-
-	Q.remove({'a','b'});
+	//Q.remove({'a','b'});
 
 	{
 		auto pp = Q.max();
@@ -150,11 +104,16 @@ int main(int argc,char** argv) {
 	while(Q.size() > 0){
 
 		auto pp = Q.max();
+
+		cout << "extracted " << (char)pp.first << (char)pp.second << " " << flush;
+
 		Q.remove(pp);
 
 		cout << "size = " << Q.size() << endl;
 
 	}
+
+
 
 
 

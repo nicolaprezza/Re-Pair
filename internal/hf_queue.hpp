@@ -14,7 +14,7 @@
  *  Supported operations:
  *
  *  operator[ab]: return triple <P_ab, L_ab, F_ab> relative to pair ab
- *  max()/min()/head(): return pair ab with max/min F_ab or head pair in the list
+ *  max()/min(): return pair ab with max/min F_ab
  *  remove(ab): delete pair ab from queue
  *  contains(ab): true iff ab is in the queue
  *  size(): current queue size
@@ -37,8 +37,11 @@ using namespace std;
 /*
  * template on linked list type and integer type
  */
-template<typename ll_type = ll_vec32_t, typename itype = uint32_t, typename ctype = uint32_t>
+template<typename ll_type = ll_vec32_t>
 class hf_queue{
+
+using itype = typename ll_type::int_type;
+using ctype = typename ll_type::char_type;
 
 using cpair = pair<ctype,ctype>;
 using hash_t = std::unordered_map<cpair, itype>;
@@ -106,17 +109,6 @@ public:
 		assert(max_size>0);
 
 		cpair p = B.max_pair();
-		assert(contains(p));
-
-		return p;
-
-	}
-
-	cpair head(){
-
-		assert(max_size>0);
-
-		cpair p = B.first_pair();
 		assert(contains(p));
 
 		return p;
@@ -230,8 +222,8 @@ private:
 
 };
 
-typedef hf_queue<ll_vec32_t, uint32_t, uint32_t> hf_queue32_t;
-typedef hf_queue<ll_vec64_t, uint64_t, uint64_t> hf_queue64_t;
+typedef hf_queue<ll_vec32_t> hf_queue32_t;
+typedef hf_queue<ll_vec64_t> hf_queue64_t;
 
 
 #endif /* INTERNAL_HF_QUEUE_HPP_ */

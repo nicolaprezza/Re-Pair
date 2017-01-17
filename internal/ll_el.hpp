@@ -68,9 +68,12 @@ struct triple{
 template<typename ctype = uint32_t, typename itype = uint32_t>
 class ll_el{
 
-using cpair = pair<ctype,ctype>;
-
 public:
+
+using int_type = itype;
+using char_type = ctype;
+
+using cpair = pair<ctype,ctype>;
 
 	ll_el(){}
 
