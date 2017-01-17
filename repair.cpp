@@ -86,10 +86,60 @@ int main(int argc,char** argv) {
 	e = {{'n','m'},6,1,4};
 	Q.insert(e);
 
+	Q.remove({'a','m'});
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
 
 
 
 
+	{
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << "F_ae = " << t.F_ab << endl;
+	}
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+	{
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << "F_ae = " << t.F_ab << endl;
+	}
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
+
+	if(Q.contains({'a','e'})){
+
+		hf_queue32_t::triple_t t = Q[{'a','e'}];
+		cout << t.F_ab << endl;
+		Q.decrease({'a','e'});
+
+	}else{
+		cout << "does not contain" << endl;
+	}
 
 	//Q.remove({'a','b'});
 

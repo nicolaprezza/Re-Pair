@@ -118,6 +118,8 @@ public:
 
 		assert(contains(ab));
 
+		assert(check_hash_consistency());
+
 		auto coord = H[ab];
 
 		auto freq = coord.first;
@@ -147,6 +149,7 @@ public:
 
 		assert(H[ab].second < F[H[ab].first].list.capacity());
 		assert(contains(ab));
+		assert(check_hash_consistency());
 
 		return ab;
 
@@ -168,6 +171,8 @@ public:
 
 		assert(F[H[ab].first].list[H[ab].second].ab == ab);
 		assert(not F[H[ab].first].list[H[ab].second].is_null());
+
+		assert(check_hash_consistency());
 
 		return ab;
 
@@ -252,10 +257,10 @@ public:
 
 	bool contains(cpair ab){
 
-		assert(check_hash_consistency());
+		//assert(check_hash_consistency());
 
 		assert(max_size>0);
-		assert(H.count(ab) == 0 or H[ab].second < F[H[ab].first].list.capacity());
+		//assert(H.count(ab) == 0 or H[ab].second < F[H[ab].first].list.capacity());
 
 		return H.count(ab) == 1;
 
@@ -524,6 +529,11 @@ private:
 	}
 
 	bool check_hash_consistency(){
+
+		//decomment this line to enable the check
+		//be aware that this check introduces a lot of overhead,
+		//so run it only on small datasets
+		return true;
 
 		for(auto el : H){
 

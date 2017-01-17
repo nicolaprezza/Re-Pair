@@ -386,8 +386,6 @@ public:
 
 				while(cur_pos != null){
 
-					cout << i << " / " << n << endl;
-
 					assert(i<n);
 
 					tmp[i++] = V[cur_pos];
