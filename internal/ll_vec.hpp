@@ -213,11 +213,6 @@ public:
 
 			first_el = next;
 
-			if(next != null)
-				prev_el[next] = null;
-
-			assert(first_el == null || prev_el[first_el] == null);
-
 		}else{
 
 			//if there is a predecessor, i cannot be the first element
@@ -226,13 +221,10 @@ public:
 			//i has a predecessor
 			next_el[prev] = next;
 
-			//i might not have a successor
-			if(next != null)
-				prev_el[next] = prev;
-
-			assert(first_el == null || prev_el[first_el] == null);
-
 		}
+
+		if(next != null)
+			prev_el[next] = prev;
 
 		assert(first_el == null || prev_el[first_el] == null);
 

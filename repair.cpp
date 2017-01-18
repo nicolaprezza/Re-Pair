@@ -9,12 +9,15 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <set>
 
 #include <hf_queue.hpp>
 #include <lf_queue.hpp>
 
 #include <ll_vec.hpp>
 #include <ll_el.hpp>
+
+#include <skippable_text.hpp>
 
 using namespace std;
 
@@ -32,24 +35,10 @@ void help(){
 
 }
 
-
-int main(int argc,char** argv) {
+void test_lf(){
 
 	using triple = std::tuple<uint32_t, uint32_t,uint32_t>;
 
-	if(argc!=3) help();
-
-	string in(argv[1]);
-	string out_prefix(argv[2]);
-
-	string out_rp = out_prefix;
-	out_rp.append(".rp");
-
-	string out_g = out_prefix;
-	out_g.append(".g");
-
-	cout << "Compressing file " << in << endl;
-	cout << "Saving output to files " << out_rp  << " and " << out_g << endl<<endl;
 
 	lf_queue32_t Q(9,15);
 
@@ -95,7 +84,9 @@ int main(int argc,char** argv) {
 		Q.decrease({'a','e'});
 
 	}else{
+
 		cout << "does not contain" << endl;
+
 	}
 
 
@@ -164,8 +155,111 @@ int main(int argc,char** argv) {
 	}
 
 
+}
+
+void test_text(){
+
+	skippable_text32_t T(10);
+
+	T.set(0,'m');
+	T.set(1,'i');
+	T.set(2,'s');
+	T.set(3,'s');
+	T.set(4,'i');
+	T.set(5,'s');
+	T.set(6,'s');
+	T.set(7,'i');
+	T.set(8,'p');
+	T.set(9,'p');
+
+	/*
+	 * 0123456789
+	 * mississipp
+	 *
+	 */
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(1,'A');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(1,'X');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(4,'Y');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(4,'C');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(4,'W');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(1,'D');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(1,'Q');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
 
 
+	T.replace(1,'D');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+	T.replace(0,'S');
+
+	for(int i=0;i<T.size();++i)	cout << i; cout << endl;
+	for(int i=0;i<T.size();++i)	cout << (T.is_blank(i) ? '_' : (char)T[i]);
+	cout << endl<<endl;
+
+
+
+
+}
+
+
+int main(int argc,char** argv) {
+
+	if(argc!=3) help();
+
+	string in(argv[1]);
+	string out_prefix(argv[2]);
+
+	string out_rp = out_prefix;
+	out_rp.append(".rp");
+
+	string out_g = out_prefix;
+	out_g.append(".g");
+
+	cout << "Compressing file " << in << endl;
+	cout << "Saving output to files " << out_rp  << " and " << out_g << endl<<endl;
+
+	test_text();
 
 }
 
