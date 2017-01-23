@@ -23,9 +23,10 @@ using namespace sdsl;
 template<typename itype = uint32_t, typename ctype = uint32_t>
 class skippable_text{
 
-	using cpair = pair<ctype,ctype>;
-
 public:
+
+	using char_type = ctype;
+	using cpair = pair<ctype,ctype>;
 
 	/*
 	 * initialize new empty text (filled with charcter 0).
@@ -82,12 +83,17 @@ public:
 	 *
 	 * this position skips runs of blanks.
 	 *
-	 * if i contains a BLANK, the function returns <BLANK,BLANK>
+	 * if i is last text's character or i is a blank position, return blank pair
+	 *
 	 */
 	cpair pair_starting_at(itype i){
 
-		assert(i<n-1);
+		assert(i<n);
 
+		//in this case T[i] is last text's character: no pairs starting at position i. Return blank pair.
+		if( i==n-1 || (blank[i+1] and i + T[i+1] +1 >= n)) return {BLANK,BLANK};
+
+		//if i contains blank, return blank pair
 		if(operator[](i)==BLANK) return {BLANK,BLANK};
 
 		//blank[i+1] -> the position pointed to ends before the text end
@@ -103,15 +109,49 @@ public:
 	}
 
 	/*
+	 * return pair that follows pair starting at position i
+	 *
+	 * this position skips runs of blanks.
+	 *
+	 * return blank pair if there is no next pair
+	 *
+	 */
+	cpair next_pair(itype i){
+
+		assert(i<n);
+
+		//in this case T[i] is last text's character: no pairs starting at position i. Return blank pair.
+		if( i==n-1 || (blank[i+1] and i + T[i+1] +1 >= n)) return {BLANK,BLANK};
+
+		//if i contains blank, return blank pair
+		if(operator[](i)==BLANK) return {BLANK,BLANK};
+
+		//blank[i+1] -> the position pointed to ends before the text end
+		assert(not blank[i+1] || i + T[i+1] +1 < n);
+		//blank[i+1] -> the position pointed to does not contain a blank
+		assert(not blank[i+1] || (not blank[i + T[i+1] +1]));
+
+		//next non-blank position
+		itype next_pos = blank[i+1] ? i + T[i+1] +1 : i+1;
+
+		return pair_starting_at(next_pos);
+
+	}
+
+
+	/*
 	 * return pair ending at position i > 0
 	 *
 	 * this position skips runs of blanks.
 	 *
-	 * if i contains a BLANK, the function returns <BLANK,BLANK>
+	 * if i is first text's character or i is a blank position, return blank pair
 	 */
 	cpair pair_ending_at(itype i){
 
-		assert(i>0);
+		assert(i>=0);
+
+		//if i is first text's character return blank pair
+		if(i==0 || (blank[i-1] and i < (T[i-1]+1))) return {BLANK,BLANK};
 
 		if(operator[](i)==BLANK) return {BLANK,BLANK};
 
@@ -125,6 +165,10 @@ public:
 
 		return {first,second};
 
+	}
+
+	cpair blank_pair(){
+		return {BLANK,BLANK};
 	}
 
 	/*
@@ -182,9 +226,9 @@ public:
 
 	}
 
-	static const ctype BLANK = ~ctype(0);
-
 private:
+
+	const ctype BLANK = ~ctype(0);
 
 	/*
 	 * TODO: replace T and blank with blocked compressed vectors. In this way we should get close to n bytes of usage for the text
@@ -194,14 +238,14 @@ private:
 	//this is the text
 	int_vector<> T;
 
-	itype n;
+	itype n = 0;
 
 	//this bitvector marks blank positions
 	//the first and last blank positions in a run of blank positions
 	//contain the length of the run of blanks
 	vector<bool> blank;
 
-	uint8_t width;
+	uint8_t width = 0;
 
 
 };

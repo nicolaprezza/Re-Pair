@@ -48,6 +48,8 @@ struct hash<pair<uint64_t,uint64_t> >{
 template<typename itype = uint32_t>
 struct triple{
 
+public:
+
 	triple(itype P_ab, 	itype L_ab,	itype F_ab){
 
 		this->P_ab = P_ab;

@@ -40,13 +40,13 @@ using namespace std;
 template<typename ll_type = ll_vec32_t>
 class hf_queue{
 
-using itype = typename ll_type::int_type;
-using ctype = typename ll_type::char_type;
-
-using cpair = pair<ctype,ctype>;
-using hash_t = std::unordered_map<cpair, itype>;
-
 public:
+
+	using itype = typename ll_type::int_type;
+	using ctype = typename ll_type::char_type;
+
+	using cpair = pair<ctype,ctype>;
+	using hash_t = std::unordered_map<cpair, itype>;
 
 	using triple_t = triple<itype>;
 	using el_type = typename ll_type::el_type;
@@ -68,6 +68,17 @@ public:
 	 * becomes strictly smaller than min_frequency, then the pair is removed from the queue
 	 */
 	hf_queue(itype max_size, itype min_freq) {
+
+		assert(min_freq>1);
+
+		this->min_freq = min_freq;
+		this->max_size = max_size;
+
+		H = hash_t(max_size*2);
+
+	}
+
+	void init(itype max_size, itype min_freq) {
 
 		assert(min_freq>1);
 
@@ -119,6 +130,7 @@ public:
 
 		assert(contains(ab));
 		assert(max_size>0);
+		assert(H[ab] != null);
 
 		B.remove(H[ab]);
 		H.erase(ab);
@@ -136,6 +148,9 @@ public:
 
 	}
 
+	/*
+	 * current number of pairs in the queue
+	 */
 	itype size(){
 
 		assert(max_size>0);
@@ -150,6 +165,7 @@ public:
 	void decrease(cpair ab){
 
 		assert(contains(ab));
+		assert(H[ab] != null);
 		assert(max_size>0);
 
 		//frequency must be >0, otherwise we would alredy have removed the pair
@@ -172,14 +188,23 @@ public:
 
 		cpair ab = el.ab;
 
-		//must not already contain ab
 		assert(not contains(ab));
+
 		//must meet requirement on minimum frequency
 		assert(el.F_ab >= min_freq);
 
 		itype idx = B.insert(el);
 
-		H.insert({ab,idx});
+		if(contains(ab)){
+
+			H[ab] = idx;
+
+		}else{
+
+			H.insert({ab,idx});
+
+		}
+
 		assert(H[ab]==idx);
 
 		assert(B[H[ab]].P_ab == el.P_ab);
@@ -188,6 +213,7 @@ public:
 
 		//must not exceed max capacity
 		assert(size()<=max_size);
+		assert(contains(ab));
 
 	}
 
@@ -218,7 +244,7 @@ private:
 	ll_type B;
 	hash_t H;
 
-	const static itype null = ~itype(0);
+	const itype null = ~itype(0);
 
 };
 

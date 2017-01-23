@@ -310,6 +310,8 @@ public:
 
 		n++;
 
+		assert(insert_pos < V.size());
+
 		assert(V[insert_pos].P_ab == x.P_ab);
 		assert(V[insert_pos].L_ab == x.L_ab);
 		assert(V[insert_pos].F_ab == x.F_ab);
@@ -317,8 +319,6 @@ public:
 		assert(operator[](insert_pos).P_ab == x.P_ab);
 		assert(operator[](insert_pos).L_ab == x.L_ab);
 		assert(operator[](insert_pos).F_ab == x.F_ab);
-
-		assert(insert_pos < n);
 
 		assert(n==0 or not V[first_el].is_null());
 		assert(first_el == null || prev_el[first_el] == null);
@@ -430,7 +430,7 @@ private:
 	//this value is reserved to indicate NULL elements/pointers
 	const static itype null = ~itype(0);
 
-	//number of elements actually stored
+	//number of elements stored
 	itype n;
 
 	itype first_el;
