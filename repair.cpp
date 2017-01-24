@@ -116,7 +116,7 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 		}
 
 		itype k = 1; //current pair frequency
-		cpair ab;
+		cpair ab = T.blank_pair();
 
 		while(	j<TP.size()-1 &&
 				T.pair_starting_at(TP[j]) != T.blank_pair() &&
@@ -144,19 +144,15 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 }
 
 /*
- * synchronize queue in range corresponding to pair AB. Provide also reference to minimum pair ab (procedure may modify ab)
+ * synchronize queue in range corresponding to pair AB.
  */
 template<typename queue_t>
-void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair & ab, cpair AB, bool AB_forbidden = false){
-
-	auto q_el = Q[ab];
-	//frequency of minimum element
-	itype F_ab = q_el.F_ab;
+void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB, bool AB_forbidden = false){
 
 	//coordinates of AB
 
 	assert(Q.contains(AB));
-	q_el = Q[AB];
+	auto q_el = Q[AB];
 	itype P_AB = q_el.P_ab;
 	itype L_AB = q_el.L_ab;
 	itype F_AB = q_el.F_ab;
@@ -191,25 +187,25 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair & ab, cpair AB, bo
 		if(XY!=T.blank_pair())
 		cout << "Detected non-blank pair : " << XY.first << " " << XY.second << ". freq = " << k << endl;
 
+
+		//retrieve minimum pair, if any
+
+		cpair ab = Q.min();
+		itype F_ab = 0;
+
+		if(ab != T.blank_pair())
+			F_ab = Q[ab].F_ab; //frequency of minimum element
+
 		if(XY != AB and k > F_ab){
 
+			//pir XY is not AB and its frequency is greater than that of minimum element.
 			assert(XY != T.blank_pair());
 
-			//XY has a higher frequency than minimum pair: remove minimum pair and insert XY
-			Q.remove(ab);
+			//remove minimum pair and insert XY
+			Q.remove(ab); //minimum is automatically updated here (since we remove the minimum)
 
-			/*cout << "1. inserting pair with freq = " << k << endl;
-			cout << "pair = " << XY.first << " " << XY.second << endl;
-			cout << "coord = " << p << " " << k << endl;
-*/
 			assert(not Q.contains(XY));
-
-			Q.insert({XY,p,k,k});
-
-			//re-compute minimum and its frequency
-			ab = Q.min();
-			assert(Q.contains(ab));
-			F_ab = Q[ab].F_ab;
+			Q.insert({XY,p,k,k}); //minimum is automatically updated here if k is smaller than the new minimum
 
 		}else if(XY == AB){
 
@@ -217,17 +213,7 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair & ab, cpair AB, bo
 
 			//remove and re-insert AB with its new values for P, F, and L
 			Q.remove(AB);
-/*
-			cout << "2. inserting pair with freq = " << k << endl;
-			cout << "L_AB was " << L_AB << endl;*/
 			Q.insert({AB,p,k,k});
-
-			if(k<F_ab){
-
-				ab = AB;
-				F_ab = k;
-
-			}
 
 		}
 
@@ -245,7 +231,8 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 	//compute max and min
 	cpair AB = Q.max();
-	cpair ab = Q.min();
+
+	assert(Q.contains(AB));
 
 	//extract P_AB and L_AB
 	auto q_el = Q[AB];
@@ -253,10 +240,6 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 	itype P_AB = q_el.P_ab;
 	itype L_AB = q_el.L_ab;
 
-	q_el = Q[ab];
-	itype F_ab = q_el.F_ab;
-
-	cout << "\nMIN = " << ab.first << " " << ab.second << " (" << F_ab << ")" << endl;
 	cout << "MAX = " << AB.first << " " << AB.second << " (" << F_AB << ")" << endl;
 
 	//outpout new rule
@@ -319,6 +302,7 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 			if(xA != T.blank_pair() && Q.contains(xA) && xA != AB){
 
+				assert(Q.contains(xA));
 				q_el = Q[xA];
 				itype F_xA = q_el.F_ab;
 				itype L_xA = q_el.L_ab;
@@ -329,7 +313,7 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 					assert(xA != AB);
 
-					synchronize_hf<queue_t>(Q, TP, T, ab, xA);
+					synchronize_hf<queue_t>(Q, TP, T, xA);
 
 					cout << "new values: " << F_xA << " / " <<  L_xA << endl;
 					assert(Q[xA].F_ab == Q[xA].L_ab);
@@ -343,7 +327,9 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 	}
 
 	cout << "synchronize replaced pair " << endl;
-	synchronize_hf<queue_t>(Q, TP, T, ab, AB, true);
+
+	assert(Q.contains(AB));
+	synchronize_hf<queue_t>(Q, TP, T, AB, true);
 
 	Q.remove(AB);
 

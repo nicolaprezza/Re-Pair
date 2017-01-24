@@ -96,10 +96,12 @@ public:
 
 	/*
 	 * linear-scan the array and retrieve pair with smallest F_ab
+	 * if array is empty, return null pair
 	 */
 	cpair min_pair(){
 
-		assert(size()>0);
+		if(size()==0) return {null,null};
+
 		assert(first_el != null);
 
 		itype curr = first_el;
@@ -139,10 +141,12 @@ public:
 
 	/*
 	 * linear-scan the array and retrieve pair with largest F_ab
+	 * if array is empty, return null pair
 	 */
 	cpair max_pair(){
 
-		assert(size()>0);
+		if(size()==0) return {null,null};
+
 		assert(first_el != null);
 
 		itype curr = first_el;
@@ -428,7 +432,7 @@ private:
 	vector<itype> prev_el; //not used for null positions
 
 	//this value is reserved to indicate NULL elements/pointers
-	const static itype null = ~itype(0);
+	const itype null = ~itype(0);
 
 	//number of elements stored
 	itype n;

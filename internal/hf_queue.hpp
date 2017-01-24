@@ -104,29 +104,37 @@ public:
 
 	}
 
+	/*
+	 * return pair with minimum frequency
+	 * if the minimum is not synchronized with the content of the queue, re-compute it.
+	 */
 	cpair min(){
 
 		assert(max_size>0);
 
-		cpair p = B.min_pair();
-		assert(contains(p));
+		refresh_min_and_max();
 
-		return p;
+		return MIN;
 
 	}
 
+	/*
+	 * return pair with maximum frequency
+	 * if the maximum is not synchronized with the content of the queue, re-compute it.
+	 */
 	cpair max(){
 
 		assert(max_size>0);
 
-		cpair p = B.max_pair();
-		assert(contains(p));
+		refresh_min_and_max();
 
-		return p;
+		return MAX;
 
 	}
 
 	void remove(cpair ab){
+
+		refresh_min_and_max();
 
 		assert(contains(ab));
 		assert(max_size>0);
@@ -137,6 +145,8 @@ public:
 
 		//if more than half of B's entries are empty, compact B.
 		if(B.size() < B.capacity()/2) compact_ll();
+
+		refresh_min_and_max();
 
 	}
 
@@ -168,7 +178,7 @@ public:
 		assert(H[ab] != null);
 		assert(max_size>0);
 
-		//frequency must be >0, otherwise we would alredy have removed the pair
+		//frequency must be >0, otherwise we would already have removed the pair
 		assert(B[H[ab]].F_ab>0);
 
 		B[H[ab]].F_ab--;
@@ -176,7 +186,18 @@ public:
 		//if frequency becomes too small, remove pair
 		if(B[H[ab]].F_ab < min_freq){
 
-			remove(ab);
+			remove(ab); //this automatically re-computes minimum/max if ab was the minimum/max
+
+		}else{
+
+			refresh_min_and_max();
+
+			//if the new frequency is lower than that of the minimum, this is the new minimum
+			if(operator[](ab).F_ab < operator[](MIN).F_ab){
+
+				MIN = ab;
+
+			}
 
 		}
 
@@ -194,30 +215,47 @@ public:
 		assert(el.F_ab >= min_freq);
 
 		itype idx = B.insert(el);
+		H.insert({ab,idx});
 
-		if(contains(ab)){
+		//if MIN/MAX have not yet been computed, compute them
+		refresh_min_and_max();
 
-			H[ab] = idx;
+		//if the inserted element's frequency is lower than that of the minimum, this is the new minimum
+		if(el.F_ab < operator[](MIN).F_ab){
 
-		}else{
+			MIN = ab;
 
-			H.insert({ab,idx});
+		}
+
+		/*
+		 * if the inserted element's frequency is larger than that of the max, this is the new max
+		 */
+		if(el.F_ab > operator[](MAX).F_ab){
+
+			MAX = ab;
 
 		}
 
 		assert(H[ab]==idx);
-
 		assert(B[H[ab]].P_ab == el.P_ab);
 		assert(B[H[ab]].L_ab == el.L_ab);
 		assert(B[H[ab]].F_ab == el.F_ab);
-
-		//must not exceed max capacity
 		assert(size()<=max_size);
 		assert(contains(ab));
 
 	}
 
 private:
+
+	void refresh_min_and_max(){
+
+		if(MIN == cpair {null,null} or not contains(MIN))
+			MIN = B.min_pair();
+
+		if(MAX == cpair {null,null} or not contains(MAX))
+			MAX = B.max_pair();
+
+	}
 
 	/*
 	 * compact memory used by the linked list and re-compute
@@ -245,6 +283,10 @@ private:
 	hash_t H;
 
 	const itype null = ~itype(0);
+
+	cpair MIN = {null,null};
+	cpair MAX = {null,null};
+
 
 };
 
