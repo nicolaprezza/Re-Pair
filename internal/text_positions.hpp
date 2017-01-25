@@ -38,30 +38,111 @@ public:
 
 	using el_type = ll_el_t;
 	using ipair = pair<itype,itype>;
+	using cpair = pair<ctype,ctype>;
+	using hash_t = std::unordered_map<cpair, vector<itype> >;
 
-	text_positions(skippable_text<itype,ctype> * T){
+	/*
+	 * build new array of text positions with only text positions of pairs with
+	 * frequency at least min_freq
+	 *
+	 * assumption: input text is ASCII (max char = 255)
+	 *
+	 * if max_alphabet_size>0, build table of max_alphabet_size x max_alphabet_size entries to speed-up
+	 * pair sorting.
+	 *
+	 */
+	text_positions(skippable_text<itype,ctype> * T, itype min_freq, itype max_alphabet_size = 0){
 
-		content = text_pos;
+		//content = text_pos;
 
+		if(max_alphabet_size>0){
+
+			H = vector<vector<ipair> >(max_alphabet_size,vector<ipair>(max_alphabet_size,{0,0}));
+			pair_visited = vector<vector<bool> >(max_alphabet_size,vector<bool>(max_alphabet_size,false));
+
+		}
+
+		this->min_freq = min_freq;
 		this->T = T;
 
 		assert(T->size()>1);
 
 		//TP's size: text size - 1
-		n = T->size()-1;
+		//n = T->size()-1;
 
-		width = 64 - __builtin_clzll(uint64_t(n));
+		width = 64 - __builtin_clzll(uint64_t(T->size()));
 
-		TP = int_vector<>(n,0,width);
+		//frequency of every possible ASCII pair
+		auto F = vector<vector<itype> >(256,vector<itype>(256,0));
 
-		for(uint64_t i = 0; i<n; ++i) TP[i] = i;
+		//count frequencies
+		for(itype i = 0;i<T->size()-1;++i){
+
+			cpair p = T->pair_starting_at(i);
+			ctype a = p.first;
+			ctype b = p.second;
+
+			assert(a<256);
+			assert(b<256);
+
+			F[a][b]++;
+
+		}
+
+		const itype null = ~itype(0);
+
+		itype hf_pairs = 0;
+
+		for(ctype a = 0;a<256;++a){
+
+			for(ctype b = 0;b<256;++b){
+
+				itype t = F[a][b];
+
+				if(F[a][b] < min_freq){
+
+					F[a][b] = null;
+
+				}else{
+
+					F[a][b] = hf_pairs;
+					hf_pairs += t;
+
+				}
+
+			}
+
+		}
+
+		TP = int_vector<>(hf_pairs,0,width);
+
+		//fill TP: cluster high-freq pairs
+		for(itype i = 0;i<T->size()-1;++i){
+
+			cpair p = T->pair_starting_at(i);
+			ctype a = p.first;
+			ctype b = p.second;
+
+			assert(a<256);
+			assert(b<256);
+
+			if(F[a][b] != null){//if ab is a high-freq pair
+
+				assert(F[a][b] < TP.size());
+
+				//store i at position F[a][b], increment F[a][b]
+				TP[ F[a][b]++ ] = i;
+
+			}
+
+		}
 
 	}
 
 	/*
 	 * restore text positions without sorting them
 	 */
-	void restore_text_positions(){
+	/*void restore_text_positions(){
 
 		assert(content == pairs);
 
@@ -71,32 +152,214 @@ public:
 
 		for(uint64_t i = 0; i<n; ++i) TP[i] = i;
 
-	}
+	}*/
 
 	/*
 	 * get i-th text position
 	 */
 	itype operator[](itype i){
 
-		assert(i<n);
-		assert(content == text_pos);
+		assert(i<size());
+		//assert(content == text_pos);
 
 		return TP[i];
 
 	}
 
 	/*
-	 * sort TP[i,...,j-1] by character pairs
+	 * cluster TP[i,...,j-1] by character pairs
 	 */
 	void sort(itype i, itype j){
 
-		assert(content == text_pos);
+		//assert(content == text_pos);
 
-		assert(i<n);
-		assert(j<=n);
+		assert(i<size());
+		assert(j<=size());
 		assert(i<j);
 
-		std::sort(TP.begin()+i, TP.begin()+j, comparator(T));
+		/*if(H.size()==0){
+
+			std::sort(TP.begin()+i, TP.begin()+j, comparator(T));
+			return;
+
+		}*/
+
+		//first step: count frequencies
+		for(itype k = i; k<j; ++k){
+
+			cpair ab = T->pair_starting_at(TP[k]);
+			ctype a = ab.first;
+			ctype b = ab.second;
+
+			if(ab != nullpair){
+
+				assert(a<H.size());
+				assert(b<H.size());
+
+				H[a][b].first++;
+
+			}
+
+		}
+
+		itype t = i;//cumulated freq
+
+		//second step: cumulate frequencies
+		for(itype k = i; k<j; ++k){
+
+			cpair ab = T->pair_starting_at(TP[k]);
+			ctype a = ab.first;
+			ctype b = ab.second;
+
+			if(ab != nullpair){
+
+				assert(a<H.size());
+				assert(b<H.size());
+
+				if(not pair_visited[a][b]){
+
+					itype temp = H[a][b].first;
+
+					H[a][b].first = t;
+					H[a][b].second = t;
+
+					t += temp;
+					pair_visited[a][b] = true;
+
+				}
+
+			}
+
+		}
+
+		//t is the starting position of null pairs
+
+		itype null_start = t;
+
+		//third step: cluster
+		itype k = i; //current position in TP
+
+		//invariant: TP[i,...,k] is clustered
+
+		while(k<j){
+
+			cpair ab = T->pair_starting_at(TP[k]);
+			ctype a = ab.first;
+			ctype b = ab.second;
+
+			itype ab_start;
+			itype ab_end;
+
+			if(ab==nullpair){
+
+				ab_start = null_start;
+				ab_end = t;
+
+			}else{
+
+				ab_start = H[a][b].first;
+				ab_end = H[a][b].second;
+
+			}
+
+			if(k >= ab_start and k <= ab_end){
+
+				//case 1: ab is the right place: increment k
+				k++;
+
+				if(ab==nullpair){
+
+					t += (ab_end == k);
+
+				}else{
+
+					//if k is exactly next ab position, increment next ab position
+					H[a][b].second += (ab_end == k);
+
+				}
+
+			}else{
+
+				//ab has to go to ab_end. swap TP[k] and TP[ab_end]
+				itype temp = TP[k];
+				TP[k] = TP[ab_end];
+				TP[ab_end] = temp;
+
+				if(ab==nullpair){
+
+					t++;
+
+				}else{
+
+					//move forward ab_end since we inserted an ab on top of the list of ab's
+					H[a][b].second++;
+
+				}
+
+			}
+
+		}
+
+		//restore H and pair_visited
+		for(itype k = i; k<j; ++k){
+
+			cpair ab = T->pair_starting_at(TP[k]);
+			ctype a = ab.first;
+			ctype b = ab.second;
+
+			if(ab!=nullpair){
+
+				H[a][b] = {0,0};
+				pair_visited[a][b] = false;
+
+			}
+
+		}
+
+		//there cannot be more distinct pairs than j-i
+		//in the high-freq queue, there cannot be more pairs than size()/min_freq
+		/*uint64_t max_number_of_pairs = std::min(uint64_t(j-i),size()/min_freq);
+
+		auto H = hash_t(2*max_number_of_pairs);
+
+		//TODO use int_vector
+		vector<itype> temp(j-i);
+
+		for(itype k = i; k<j; ++k ){
+
+			cpair ab = T->pair_starting_at(TP[k]);
+
+			if(H.count(ab)==0){
+
+				vector<itype> v;
+				v.push_back(TP[k]);
+
+				H.insert({ab,v});
+
+			}else{
+
+				H[ab].push_back(TP[k]);
+
+			}
+
+		}
+
+		itype t=0;
+		for(auto p : H){
+
+			vector<itype> v = p.second;
+			for(auto pos : v) temp[t++] = pos;
+
+		}
+
+		for(itype k = i; k<j; ++k ){
+
+			assert(k<TP.size());
+			assert(k-i<temp.size());
+
+			TP[k] = temp[k-i];
+
+		}*/
 
 	}
 
@@ -109,24 +372,25 @@ public:
 
 	itype size(){
 
-		assert(content == text_pos);
-		return n;
+		//assert(content == text_pos);
+
+		return TP.size();
 
 	}
 
-	itype number_of_pairs(){
+	/*itype number_of_pairs(){
 
 		assert(content == pairs);
 		return n_pairs;
 
-	}
+	}*/
 
 	/*
 	 * this function turns the object from array of text positions to array of pairs <freq, text_pos>
 	 * keep only pairs with minimum frequency min_freq (included)
 	 *
 	 */
-	void extract_frequencies(itype min_freq = 2){
+	/*void extract_frequencies(itype min_freq = 2){
 
 		assert(content == text_pos);
 
@@ -182,26 +446,26 @@ public:
 
 		cout << " done." << endl;
 
-	}
+	}*/
 
 	/*
 	 * get i-th pair <freq, text_pos>.
 	 * this object must be in the state 'frequencies' in order to call this function
 	 */
-	ipair get_pair(itype i){
+	/*ipair get_pair(itype i){
 
 		assert(content == pairs);
 		assert(i<n_pairs);
 
 		return {TP[2*i],TP[2*i+1]};
 
-	}
+	}*/
 
 
 	/*
 	 * return frequencies of all pairs in a compact int_vector. Frequencies are sorted in decreasing order
 	 */
-	int_vector<> get_sorted_pair_frequencies(){
+	/*int_vector<> get_sorted_pair_frequencies(){
 
 		assert(content == pairs);
 
@@ -217,7 +481,7 @@ public:
 
 		return result;
 
-	}
+	}*/
 
 
 private:
@@ -240,35 +504,27 @@ private:
 
 	};
 
-	/*
-	 * this object can exist in 2 formats: text positions and pairs <freq, text_pos>, where freq is the frequency of the pair
-	 * starting at text position text_pos
-	 *
-	 *
-	 *
-	 */
-	//const bool text_pos = 0;
-	//const bool pairs = 1;
-
-	enum content_t {text_pos, pairs};
-	content_t content;
-
 	//int content;
 
 	//if content = frequencies, this is the number of pairs stored in the structure
 	//and equals the number of distinct text pairs with frequency at least 2
-	itype n_pairs = 0;
+	//itype n_pairs = 0;
 
 	//a reference to the text
 	skippable_text<itype,ctype> * T;
 
-	//TP's size: text size - 1
-	itype n;
-
 	uint64_t width;
+	uint64_t min_freq;
+
+	//hash to speed-up pair sorting (to linear time)
+	vector<vector<ipair> > H; //H[a][b] = <begin, end>. end = next position where to store ab
+	vector<vector<bool> > pair_visited;
 
 	//the array of text positions
 	int_vector<> TP;
+
+	const itype null = ~itype(0);
+	const cpair nullpair = {null,null};
 
 };
 

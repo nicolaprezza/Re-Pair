@@ -54,12 +54,16 @@ public:
 		this->n = n;
 		non_blank_characters = n;
 
-		width = 64 - __builtin_clzll(uint64_t(n));
-		width = std::max<itype>(8,width);
+		//width = 64 - __builtin_clzll(uint64_t(n));
+		//width = std::max<itype>(8,width);
 
 		blank = vector<bool>(n,false);
 
-		T = int_vector<>(n,0,width);
+		uint64_t n_blocks = n/block_size + (n%block_size != 0);
+
+		T = vector<int_vector<> >(n_blocks,int_vector<>(block_size, 0, 7));
+
+		//T = int_vector<>(n,0,width);
 
 	}
 
@@ -73,7 +77,7 @@ public:
 
 		assert(i<n);
 
-		return blank[i] ? BLANK : T[i];
+		return blank[i] ? BLANK : T[i/block_size][i%block_size];
 
 	}
 
@@ -88,9 +92,39 @@ public:
 	 */
 	void set(itype i, ctype c){
 
-		assert(c != blank);
+		assert(c != BLANK);
 		assert(i<n);
-		T[i] = c;
+
+		itype j = i/block_size;
+		itype o = i%block_size;
+		itype w = T[j].width();
+
+		itype c_width = 64 - __builtin_clzll(uint64_t(c));
+
+		if(c_width <= w){
+
+			T[j][o] = c;
+
+			assert(T[j][o] == c);
+
+		}else{
+
+			auto new_vec = int_vector<>(block_size,0,c_width);
+
+			for(itype k = 0; k<block_size; ++k) new_vec[k] = T[j][k];
+
+			new_vec[o] = c;
+
+			T[j].swap(new_vec);
+
+			assert(T[j][o] == c);
+
+		}
+
+		assert(T[j].width() == std::max(w,c_width));
+
+		assert(T[j][o] == c);
+		assert(blank[i] || operator[](i) == c);
 
 	}
 
@@ -107,18 +141,18 @@ public:
 		assert(i<n);
 
 		//in this case T[i] is last text's character: no pairs starting at position i. Return blank pair.
-		if( i==n-1 || (blank[i+1] and i + T[i+1] +1 >= n)) return {BLANK,BLANK};
+		if( i==n-1 || (blank[i+1] and i + int_at(i+1) +1 >= n)) return {BLANK,BLANK};
 
 		//if i contains blank, return blank pair
 		if(operator[](i)==BLANK) return {BLANK,BLANK};
 
 		//blank[i+1] -> the position pointed to ends before the text end
-		assert(not blank[i+1] || i + T[i+1] +1 < n);
+		assert(not blank[i+1] || i + int_at(i+1) +1 < n);
 		//blank[i+1] -> the position pointed to does not contain a blank
-		assert(not blank[i+1] || (not blank[i + T[i+1] +1]));
+		assert(not blank[i+1] || (not blank[i + int_at(i+1) +1]));
 
-		ctype first = T[i];
-		ctype second = blank[i+1] ? T[ i + T[i+1] +1 ] : T[i+1];
+		ctype first = operator[](i);
+		ctype second = blank[i+1] ? int_at( i + int_at(i+1) +1 ) : int_at(i+1);
 
 		return {first,second};
 
@@ -137,18 +171,18 @@ public:
 		assert(i<n);
 
 		//in this case T[i] is last text's character: no pairs starting at position i. Return blank pair.
-		if( i==n-1 || (blank[i+1] and i + T[i+1] +1 >= n)) return {BLANK,BLANK};
+		if( i==n-1 || (blank[i+1] and i + int_at(i+1) +1 >= n)) return {BLANK,BLANK};
 
 		//if i contains blank, return blank pair
 		if(operator[](i)==BLANK) return {BLANK,BLANK};
 
 		//blank[i+1] -> the position pointed to ends before the text end
-		assert(not blank[i+1] || i + T[i+1] +1 < n);
+		assert(not blank[i+1] || i + int_at(i+1) +1 < n);
 		//blank[i+1] -> the position pointed to does not contain a blank
-		assert(not blank[i+1] || (not blank[i + T[i+1] +1]));
+		assert(not blank[i+1] || (not blank[i + int_at(i+1) +1]));
 
 		//next non-blank position
-		itype next_pos = blank[i+1] ? i + T[i+1] +1 : i+1;
+		itype next_pos = blank[i+1] ? i + int_at(i+1) +1 : i+1;
 
 		return pair_starting_at(next_pos);
 
@@ -167,17 +201,17 @@ public:
 		assert(i>=0);
 
 		//if i is first text's character return blank pair
-		if(i==0 || (blank[i-1] and i < (T[i-1]+1))) return {BLANK,BLANK};
+		if(i==0 || (blank[i-1] and i < (int_at(i-1)+1))) return {BLANK,BLANK};
 
 		if(operator[](i)==BLANK) return {BLANK,BLANK};
 
 		//blank[i-1] -> the position pointed to does not start before the text
-		assert(not blank[i-1] || i  >= (T[i-1]+1));
+		assert(not blank[i-1] || i  >= (int_at(i-1)+1));
 		//blank[i-1] -> the position pointed to does not contain BLANK
-		assert(not blank[i-1] || (not blank[i - (T[i-1]+1)]));
+		assert(not blank[i-1] || (not blank[i - (int_at(i-1)+1)]));
 
-		ctype first = blank[i-1] ? T[ i - (T[i-1]+1) ] : T[i-1];
-		ctype second = T[i];
+		ctype first = blank[i-1] ? int_at( i - (int_at(i-1)+1) ) : int_at(i-1);
+		ctype second = operator[](i);
 
 		return {first,second};
 
@@ -201,12 +235,12 @@ public:
 		assert(i<n-1);
 
 		//blank[i+1] -> the position pointed to ends before the text end
-		assert(not blank[i+1] || i + T[i+1] +1 < n);
+		assert(not blank[i+1] || i + int_at(i+1) +1 < n);
 		//blank[i+1] -> the position pointed to does not contain a blank
-		assert(not blank[i+1] || (not blank[i + T[i+1] +1]));
+		assert(not blank[i+1] || (not blank[i + int_at(i+1) +1]));
 
 		//position of next non-blank character
-		itype i_next = blank[i+1] ? i+T[i+1]+1 : i+1;
+		itype i_next = blank[i+1] ? i+int_at(i+1)+1 : i+1;
 
 		assert(i_next >= i+1);
 
@@ -214,7 +248,7 @@ public:
 		itype len = i_next - (i+1);
 
 		//length of the run following T[i_next]
-		itype next_len = i_next == n-1 ? 0 : ( blank[i_next+1] ? T[i_next+1] : 0 );
+		itype next_len = i_next == n-1 ? 0 : ( blank[i_next+1] ? int_at(i_next+1) : 0 );
 
 		//set next char's position to blank
 		blank[i_next] = true;
@@ -225,11 +259,14 @@ public:
 		assert(blank[i+new_len]);
 
 		//store run's length in the first run position
-		T[i+1] = new_len;
+		set(i+1, new_len);
+		assert(int_at(i+1) == new_len);
 		//store run's length in the last run position
-		T[i+new_len] = new_len;
+		set(i+new_len, new_len);
+		assert(int_at(i+new_len) == new_len);
 
-		T[i] = X;
+		set(i, X);
+		assert(operator[](i) == X);
 
 		assert(non_blank_characters>0);
 		non_blank_characters--;
@@ -254,6 +291,12 @@ public:
 
 private:
 
+	itype int_at(itype i){
+
+		return T[i/block_size][i%block_size];
+
+	}
+
 	const ctype BLANK = ~ctype(0);
 
 	/*
@@ -262,7 +305,13 @@ private:
 	 */
 
 	//this is the text
-	int_vector<> T;
+	//int_vector<> T;
+
+	vector<int_vector<> > T;
+
+	//group T's entries in blocks of this size; every block uses
+	//as width the width of its largest integer.
+	const uint64_t block_size = 256;
 
 	itype n = 0;
 
@@ -273,7 +322,7 @@ private:
 
 	itype non_blank_characters = 0;
 
-	uint8_t width = 0;
+	//uint8_t width = 0;
 
 
 };

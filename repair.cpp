@@ -110,8 +110,11 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 
 	}
 
+	//largest possible dictionary symbol
+	itype max_d = 256+T.size()/min_freq;
+
 	//create new queue. Capacity is number of pairs / min_frequency
-	Q.init(TP.size()/min_freq,min_freq);
+	Q.init(max_d,min_freq);
 
 	/*
 	 * step 2. Fill queue
@@ -120,13 +123,6 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 	while(j<n){
 
 		itype P_ab = j; //starting position in TP of pair
-
-		perc = (100*j)/n;
-
-		if(perc > old_perc+4){
-			cout << " " << perc << "%" << endl;
-			old_perc=perc;
-		}
 
 		itype k = 1; //current pair frequency
 		cpair ab = T.blank_pair();
@@ -414,7 +410,11 @@ void compute_repair(string in, string out_rp, string out_g){
 		n = file.tellg();
 	}
 
-	min_high_frequency = std::sqrt(n);
+	//min_high_frequency = std::sqrt(n);
+
+	//n^(2/3)
+	min_high_frequency = std::cbrt(  uint64_t(n)*uint64_t(n)  );
+
 	min_high_frequency = min_high_frequency <2 ? 2 : min_high_frequency;
 
 	cout << "File size = " << n << " characters"  << endl;
@@ -422,15 +422,10 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	itype width = 64 - __builtin_clzll(uint64_t(n));
 
-	cout << "log_2 n = " << width << " bits"  << endl;
-
-	cout << endl << "initializing text position vector and skippable text ... " << flush;
+	cout << "log_2 n = " << width << " bits"  << endl << endl;
 
 	//initialize text and text positions
 	text_t T(n);
-	TP_t TP(&T);
-
-	cout << "done." << endl;
 
 	itype j = 0;
 
@@ -452,24 +447,33 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	}
 
-	cout << "done. " << endl;
+	cout << "done. " << endl << endl;
+
+	cout << "alphabet size is " << sigma  << endl << endl;
+
+	cout << "initializing and sorting text positions vector ... " << flush;
+
+	//largest possible dictionary symbol
+	itype max_d = 256+T.size()/min_high_frequency;
+
+	TP_t TP(&T,min_high_frequency,max_d);
+
+	cout << "done. Number of high-frequency pairs: " << TP.size() << endl;
 
 	//for(uint64_t i = 0; i<n; ++i) cout << (uint8_t)int_to_char[T[i]];cout<<endl;
 
 	//next free dictionary symbol = sigma
 	X =  sigma;
 
-	cout << "alphabet size is " << sigma  << endl << endl;
-
 	cout << "STEP 1. HIGH FREQUENCY PAIRS" << endl << endl;
 
-	cout << "sorting text positions by character pairs ... " << flush;
+	//cout << "sorting text positions by character pairs ... " << flush;
 
-	TP.sort();
+	//TP.sort();
 
-	cout << "done." << endl;
+	//cout << "done." << endl;
 
-	cout << "inserting pairs in high-frequency queue ... " << endl;
+	cout << "inserting pairs in high-frequency queue ... " << flush;
 
 	hf_q_t HFQ;
 	new_high_frequency_queue(HFQ, TP, T, min_high_frequency);

@@ -41,6 +41,7 @@
 #include <ll_vec.hpp>
 #include <unordered_map>
 #include <ll_el.hpp>
+#include <pair_hash.hpp>
 
 using namespace std;
 
@@ -51,7 +52,7 @@ using namespace std;
 /*
  * template on linked list type and integer type
  */
-template<typename ll_type = ll_vec32_t>
+template<typename ll_type = ll_vec32_t, typename hash_t = pair_hash32_t>
 class hf_queue{
 
 public:
@@ -60,7 +61,7 @@ public:
 	using ctype = typename ll_type::char_type;
 
 	using cpair = pair<ctype,ctype>;
-	using hash_t = std::unordered_map<cpair, itype>;
+	//using hash_t = std::unordered_map<cpair, itype>;
 
 	using triple_t = triple<itype>;
 	using el_type = typename ll_type::el_type;
@@ -71,35 +72,27 @@ public:
 	 */
 	hf_queue(){
 
-		max_size = 0;
 		min_freq = 0;
 
 	}
 
-	/*
-	 * build queue with max capacity equal to max_size and minimum allowed
-	 * frequency of a pair equal to min_frequency (included). If a pair'sfrequency
-	 * becomes strictly smaller than min_frequency, then the pair is removed from the queue
-	 */
-	hf_queue(itype max_size, itype min_freq) {
+	hf_queue(itype max_alphabet_size, itype min_freq) {
 
 		assert(min_freq>1);
 
 		this->min_freq = min_freq;
-		this->max_size = max_size;
 
-		H = hash_t(max_size*2);
+		H = hash_t(max_alphabet_size);
 
 	}
 
-	void init(itype max_size, itype min_freq) {
+	void init(itype max_alphabet_size, itype min_freq) {
 
 		assert(min_freq>1);
 
 		this->min_freq = min_freq;
-		this->max_size = max_size;
 
-		H = hash_t(max_size*2);
+		H.init(max_alphabet_size);
 
 	}
 
@@ -113,7 +106,6 @@ public:
 	 */
 	triple_t operator[](cpair ab){
 
-		assert(max_size>0);
 		assert(ab != nullpair);
 		assert(contains(ab));
 
@@ -129,8 +121,6 @@ public:
 	 */
 	cpair min(){
 
-		assert(max_size>0);
-
 		return B.min_pair();
 
 	}
@@ -141,8 +131,6 @@ public:
 	 */
 	cpair max(){
 
-		assert(max_size>0);
-
 		return B.max_pair();
 
 	}
@@ -150,7 +138,6 @@ public:
 	void remove(cpair ab){
 
 		assert(contains(ab));
-		assert(max_size>0);
 		assert(H[ab] != null);
 
 		B.remove(H[ab]);
@@ -165,7 +152,6 @@ public:
 
 	bool contains(cpair ab){
 
-		assert(max_size>0);
 		assert(H.count(nullpair) == 0);
 
 		return H.count(ab) == 1;
@@ -177,7 +163,6 @@ public:
 	 */
 	itype size(){
 
-		assert(max_size>0);
 		return B.size();
 
 	}
@@ -190,7 +175,6 @@ public:
 
 		assert(contains(ab));
 		assert(H[ab] != null);
-		assert(max_size>0);
 
 		assert(B[H[ab]].F_ab > 0);
 
@@ -199,8 +183,6 @@ public:
 	}
 
 	void insert(el_type el){
-
-		assert(max_size>0);
 
 		cpair ab = el.ab;
 
@@ -219,7 +201,6 @@ public:
 		assert(B[H[ab]].P_ab == el.P_ab);
 		assert(B[H[ab]].L_ab == el.L_ab);
 		assert(B[H[ab]].F_ab == el.F_ab);
-		assert(size()<=max_size);
 		assert(contains(ab));
 
 	}
@@ -228,8 +209,6 @@ public:
 	 * el must be already in the queue. update values for el
 	 */
 	void update(el_type el){
-
-		assert(max_size>0);
 
 		cpair ab = el.ab;
 
@@ -256,20 +235,17 @@ private:
 	 */
 	void compact_ll(){
 
-		assert(max_size>0);
-
 		B.compact();
 
 		for(itype i=0;i<B.size();++i){
 
 			auto ab = B[i].ab;
-			H[ab] = i;
+			H.assign({ab,i});
 
 		}
 
 	}
 
-	itype max_size;
 	itype min_freq;
 
 	ll_type B;
@@ -281,8 +257,8 @@ private:
 
 };
 
-typedef hf_queue<ll_vec32_t> hf_queue32_t;
-typedef hf_queue<ll_vec64_t> hf_queue64_t;
+typedef hf_queue<ll_vec32_t,pair_hash32_t> hf_queue32_t;
+typedef hf_queue<ll_vec64_t,pair_hash64_t> hf_queue64_t;
 
 
 #endif /* INTERNAL_HF_QUEUE_HPP_ */
