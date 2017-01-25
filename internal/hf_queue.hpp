@@ -89,6 +89,10 @@ public:
 
 	}
 
+	itype minimum_frequency(){
+		return min_freq;
+	}
+
 	/*
 	 * return triple <P_ab, L_ab, F_ab> relative to pair ab
 	 * complexity: O(1)
@@ -96,6 +100,7 @@ public:
 	triple_t operator[](cpair ab){
 
 		assert(max_size>0);
+		assert(ab != nullpair);
 		assert(contains(ab));
 
 		auto e = B[H[ab]];
@@ -114,6 +119,9 @@ public:
 
 		refresh_min_and_max();
 
+		assert(size() != 1 || MIN == MAX); //size == 1 -> MIN == MAX
+		assert(MIN != nullpair || size() == 0); //MIN == null -> size == 0
+
 		return MIN;
 
 	}
@@ -128,13 +136,14 @@ public:
 
 		refresh_min_and_max();
 
+		assert(size() != 1 || MIN == MAX); //size == 1 -> MIN == MAX
+		assert(MAX != nullpair || size() == 0); //MAX == null -> size == 0
+
 		return MAX;
 
 	}
 
 	void remove(cpair ab){
-
-		refresh_min_and_max();
 
 		assert(contains(ab));
 		assert(max_size>0);
@@ -146,13 +155,17 @@ public:
 		//if more than half of B's entries are empty, compact B.
 		if(B.size() < B.capacity()/2) compact_ll();
 
+		//this refreshes MIN/MAX if ab was one of them
 		refresh_min_and_max();
+
+		assert(not contains(ab));
 
 	}
 
 	bool contains(cpair ab){
 
 		assert(max_size>0);
+		assert(H.count(nullpair) == 0);
 
 		return H.count(ab) == 1;
 
@@ -164,13 +177,15 @@ public:
 	itype size(){
 
 		assert(max_size>0);
-
 		return B.size();
 
 	}
 
 	/*
-	 * decrease by 1 F_ab
+	 * decrease by 1 F_ab. Does not recompute min/max
+	 *
+	 * warning: this function invalidates min() / max(), which must be recomputed afterwards
+	 *
 	 */
 	void decrease(cpair ab){
 
@@ -178,28 +193,9 @@ public:
 		assert(H[ab] != null);
 		assert(max_size>0);
 
-		//frequency must be >0, otherwise we would already have removed the pair
-		assert(B[H[ab]].F_ab>0);
+		assert(B[H[ab]].F_ab > 0);
 
 		B[H[ab]].F_ab--;
-
-		//if frequency becomes too small, remove pair
-		if(B[H[ab]].F_ab < min_freq){
-
-			remove(ab); //this automatically re-computes minimum/max if ab was the minimum/max
-
-		}else{
-
-			refresh_min_and_max();
-
-			//if the new frequency is lower than that of the minimum, this is the new minimum
-			if(operator[](ab).F_ab < operator[](MIN).F_ab){
-
-				MIN = ab;
-
-			}
-
-		}
 
 	}
 
@@ -210,8 +206,6 @@ public:
 		cpair ab = el.ab;
 
 		assert(not contains(ab));
-
-		//must meet requirement on minimum frequency
 		assert(el.F_ab >= min_freq);
 
 		itype idx = B.insert(el);
@@ -220,6 +214,12 @@ public:
 		//if MIN/MAX have not yet been computed, compute them
 		refresh_min_and_max();
 
+		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
+		assert(MIN != nullpair);
+		assert(MAX != nullpair);
+		assert(contains(MIN));
+		assert(contains(MAX));
+
 		//if the inserted element's frequency is lower than that of the minimum, this is the new minimum
 		if(el.F_ab < operator[](MIN).F_ab){
 
@@ -227,9 +227,7 @@ public:
 
 		}
 
-		/*
-		 * if the inserted element's frequency is larger than that of the max, this is the new max
-		 */
+		//if the inserted element's frequency is larger than that of the max, this is the new max
 		if(el.F_ab > operator[](MAX).F_ab){
 
 			MAX = ab;
@@ -242,6 +240,47 @@ public:
 		assert(B[H[ab]].F_ab == el.F_ab);
 		assert(size()<=max_size);
 		assert(contains(ab));
+
+	}
+
+	/*
+	 * el must be already in the queue. update values for el
+	 */
+	void update(el_type el){
+
+		assert(max_size>0);
+
+		cpair ab = el.ab;
+
+		assert(contains(ab));
+		assert(el.F_ab >= min_freq);
+
+		B[H[ab]].P_ab = el.P_ab;
+		B[H[ab]].L_ab = el.L_ab;
+		B[H[ab]].F_ab = el.F_ab;
+
+		//if MIN/MAX have not yet been computed, compute them
+		refresh_min_and_max();
+
+		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
+		assert(MIN != nullpair);
+		assert(MAX != nullpair);
+		assert(contains(MIN));
+		assert(contains(MAX));
+
+		//if the inserted element's frequency is lower than that of the minimum, this is the new minimum
+		if(el.F_ab < operator[](MIN).F_ab){
+
+			MIN = ab;
+
+		}
+
+		//if the inserted element's frequency is larger than that of the max, this is the new max
+		if(el.F_ab > operator[](MAX).F_ab){
+
+			MAX = ab;
+
+		}
 
 	}
 
@@ -283,6 +322,8 @@ private:
 	hash_t H;
 
 	const itype null = ~itype(0);
+
+	const cpair nullpair = {null,null};
 
 	cpair MIN = {null,null};
 	cpair MAX = {null,null};

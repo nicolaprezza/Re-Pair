@@ -59,7 +59,7 @@ itype X=0;
  * assumptions: TP is sorted by character pairs, Q is void
  *
  */
-void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_freq = 2){
+void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_freq){
 
 	itype j = 0; //current position on TP
 	itype n = TP.size();
@@ -95,15 +95,13 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 
 	}
 
-	//create new queue. Allocate space for n_pairs*2 pairs in the hash to guarantee a
-	//load factor <= 0.5
-	Q.init(n_pairs*2,min_freq);
-
-	j = 0;
+	//create new queue. Capacity is number of pairs / min_frequency
+	Q.init(TP.size()/min_freq,min_freq);
 
 	/*
 	 * step 2. Fill queue
 	 */
+	j = 0;
 	while(j<n){
 
 		itype P_ab = j; //starting position in TP of pair
@@ -131,8 +129,6 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 
 		if(k>=min_freq){
 
-			//cout << "\ninserting " << ab.first << " " << ab.second << ", " << P_ab << ", " << k << ", " << k << endl;
-
 			Q.insert({ab, P_ab, k, k});
 
 		}
@@ -149,23 +145,25 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 template<typename queue_t>
 void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB, bool AB_forbidden = false){
 
-	//coordinates of AB
+	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
 
+	assert(Q.size() > 0);
+	assert(Q[Q.max()].F_ab >= Q.minimum_frequency());
+
+	//variables associated with AB
 	assert(Q.contains(AB));
 	auto q_el = Q[AB];
 	itype P_AB = q_el.P_ab;
 	itype L_AB = q_el.L_ab;
 	itype F_AB = q_el.F_ab;
 
-	cout << "synchronizing pair = " << AB.first << " " << AB.second << " with L, F = " << L_AB << " " << F_AB << endl;
+	itype freq_AB = 0;//number of pairs AB seen inside the interval. Computed inside this function
 
+	assert(P_AB+L_AB <= TP.size());
 	//sort sub-array corresponding to AB
 	TP.sort(P_AB,P_AB+L_AB);
 
-	/*
-	 * scan TP[P_AB,...,P_AB+L_AB-1] and detect new pairs
-	 */
-
+	//scan TP[P_AB,...,P_AB+L_AB-1] and detect new pairs
 	itype j = P_AB;//current position in TP
 	while(j<P_AB+L_AB){
 
@@ -184,36 +182,23 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB, bool AB_forbid
 
 		}
 
-		if(XY!=T.blank_pair())
-		cout << "Detected non-blank pair : " << XY.first << " " << XY.second << ". freq = " << k << endl;
+		//if the pair is not AB and it is a high-frequency pair, insert it in queue
+		if(XY != AB and k >= Q.minimum_frequency()){
 
-
-		//retrieve minimum pair, if any
-
-		cpair ab = Q.min();
-		itype F_ab = 0;
-
-		if(ab != T.blank_pair())
-			F_ab = Q[ab].F_ab; //frequency of minimum element
-
-		if(XY != AB and k > F_ab){
-
-			//pir XY is not AB and its frequency is greater than that of minimum element.
 			assert(XY != T.blank_pair());
-
-			//remove minimum pair and insert XY
-			Q.remove(ab); //minimum is automatically updated here (since we remove the minimum)
-
 			assert(not Q.contains(XY));
+
 			Q.insert({XY,p,k,k}); //minimum is automatically updated here if k is smaller than the new minimum
 
-		}else if(XY == AB){
+		}else if(XY == AB){ //the pair is AB and is already in the queue: update its frequency
+
+			freq_AB = k;
 
 			assert(not AB_forbidden);
+			assert(Q.contains(AB));
 
-			//remove and re-insert AB with its new values for P, F, and L
-			Q.remove(AB);
-			Q.insert({AB,p,k,k});
+			//update only if frequency is at least minimum frequency (otherwise we will remove the pair afterwards)
+			if(k >= Q.minimum_frequency()) Q.update({AB,p,k,k});
 
 		}
 
@@ -221,8 +206,55 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB, bool AB_forbid
 
 	}
 
+	assert(Q.contains(AB));
+
+	//it could be that now AB's frequecny is too small: delete it
+	if(freq_AB < Q.minimum_frequency()){
+
+		Q.remove(AB);//automatically re-computes min/max
+
+	}
+
+	//Q does not contain its max -> Q.size() == 0
+	assert(Q.contains(Q.max()) || Q.size() == 0);
+	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
+	assert(not Q.contains(AB) || Q[AB].F_ab == Q[AB].L_ab);
+
 }
 
+/*
+ * look at F_ab and L_ab. Cases:
+ *
+ * 1. F_ab <= L_ab/2 and F_ab >= min_freq: synchronize pair. There could be new high-freq pairs in ab's list
+ * 2. F_ab <= L_ab/2 and F_ab < min_freq: as above. This because there could be new high-freq pairs in ab's list.
+ * 3. F_ab > L_ab/2 and F_ab >= min_freq: do nothing
+ * 4. F_ab > L_ab/2 and F_ab < min_freq: remove ab. ab's list cannot contain high-freq pairs, so it is safe to lose references to these pairs.
+ *
+ */
+template<typename queue_t>
+void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_t & T, cpair ab){
+
+	assert(Q.contains(ab));
+
+	auto q_el = Q[ab];
+	itype F_ab = q_el.F_ab;
+	itype L_ab = q_el.L_ab;
+
+	if(F_ab <= L_ab/2){
+
+		synchronize_hf<queue_t>(Q, TP, T, ab);
+
+	}else{
+
+		if(F_ab < Q.minimum_frequency()){
+
+			Q.remove(ab);
+
+		}
+
+	}
+
+}
 
 template<typename queue_t>
 void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
@@ -234,16 +266,18 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 	assert(Q.contains(AB));
 
+	assert(Q[AB].F_ab >= Q.minimum_frequency());
+
 	//extract P_AB and L_AB
 	auto q_el = Q[AB];
 	itype F_AB = q_el.F_ab;
 	itype P_AB = q_el.P_ab;
 	itype L_AB = q_el.L_ab;
 
-	cout << "MAX = " << AB.first << " " << AB.second << " (" << F_AB << ")" << endl;
+	cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
 
-	//outpout new rule
-	cout << "new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
+	//output new rule
+	cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl << endl;
 
 	for(itype j = P_AB; j<P_AB+L_AB;++j){
 
@@ -251,24 +285,28 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 		if(T.pair_starting_at(i) == AB){
 
+			ctype A = AB.first;
+			ctype B = AB.second;
+
 			//the context of AB is xABy. We now extract AB's context:
 			cpair xA = T.pair_ending_at(i);
 			cpair By = T.next_pair(i);
 
-			assert(By == T.blank_pair() or By.first == AB.second);
+			assert(xA == T.blank_pair() or xA.second == A);
+			assert(By == T.blank_pair() or By.first == B);
 
 			//note: xA and By could be blank pairs if this AB was the first/last pair in the text
 
 			//perform replacement
 			T.replace(i,X);
 
-			if(xA != T.blank_pair() && Q.contains(xA) && xA != AB){
+			if(Q.contains(xA) && xA != AB){
 
 				Q.decrease(xA);
 
 			}
 
-			if(By != T.blank_pair() && Q.contains(By) && xA != AB){
+			if(Q.contains(By) && By != AB){
 
 				Q.decrease(By);
 
@@ -289,36 +327,30 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 		if(T[i] == X){
 
-			//the context of X is xX. We now extract X's left context:
+			//the context of X is xXy. We now extract X's left (x) and right (y) contexts:
 			cpair xX = T.pair_ending_at(i);
+			cpair Xy = T.pair_starting_at(i);
 
-			//careful: x could be = X. in this case, before the replacements this xX was equal to ABAB -> a BA disappeared
-			ctype x = xX.first == X ? AB.second : xX.first;
 			ctype A = AB.first;
+			ctype B = AB.second;
 
-			//this is the pair that disappeared
+			//careful: x and y could be = X. in this case, before the replacements this xX was equal to ABAB -> a BA disappeared
+			ctype x = xX.first == X ? B : xX.first;
+			ctype y = Xy.second == X ? A : Xy.second;
+
+			//these are the pairs that disappeared
 			cpair xA = xX == T.blank_pair() ? xX : cpair {x,A};
+			cpair By = Xy == T.blank_pair() ? Xy : cpair {B,y};
 
+			if(Q.contains(By) && By != AB){
 
-			if(xA != T.blank_pair() && Q.contains(xA) && xA != AB){
+				synchro_or_remove_pair<queue_t>(Q, TP, T, By);
 
-				assert(Q.contains(xA));
-				q_el = Q[xA];
-				itype F_xA = q_el.F_ab;
-				itype L_xA = q_el.L_ab;
+			}
 
-				if(F_xA <= L_xA/2){
+			if(Q.contains(xA) && xA != AB){
 
-					cout << "synchronize other pair " << endl;
-
-					assert(xA != AB);
-
-					synchronize_hf<queue_t>(Q, TP, T, xA);
-
-					cout << "new values: " << F_xA << " / " <<  L_xA << endl;
-					assert(Q[xA].F_ab == Q[xA].L_ab);
-
-				}
+				synchro_or_remove_pair<queue_t>(Q, TP, T, xA);
 
 			}
 
@@ -326,12 +358,12 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 	}
 
-	cout << "synchronize replaced pair " << endl;
-
 	assert(Q.contains(AB));
-	synchronize_hf<queue_t>(Q, TP, T, AB, true);
+	synchronize_hf<queue_t>(Q, TP, T, AB, true); //automatically removes AB
+	assert(not Q.contains(AB));
 
-	Q.remove(AB);
+	assert(Q.contains(Q.max()) or Q.size() == 0);
+	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
 
 	//advance next free dictionary symbol
 	X++;
@@ -348,7 +380,6 @@ void compute_repair(string in, string out_rp, string out_g){
 	 */
 	itype min_high_frequency = 0;
 	itype lf_queue_capacity = 0;
-
 
 	/*
 	 * (1) INITIALIZE DATA STRUCTURES
@@ -422,7 +453,7 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	cout << "done." << endl;
 
-	cout << "inserting pairs in high-frequency queue ... " << flush;
+	cout << "inserting pairs in high-frequency queue ... " << endl;
 
 	hf_q_t HFQ;
 	new_high_frequency_queue(HFQ, TP, T, min_high_frequency);
