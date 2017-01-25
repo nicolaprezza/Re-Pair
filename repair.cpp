@@ -1,4 +1,19 @@
 /*
+ *  This file is part of Re-Pair.
+ *  Copyright (c) by
+ *  Nicola Prezza <nicola.prezza@gmail.com>, Philip Bille, and Inge Li Gørtz
+ *
+ *   Re-Pair is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+
+ *   Re-Pair is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
+ *
+ *
  * repair.cpp
  *
  *  Created on: Jan 11, 2017
@@ -143,7 +158,7 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
  * synchronize queue in range corresponding to pair AB.
  */
 template<typename queue_t>
-void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB, bool AB_forbidden = false){
+void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB){
 
 	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
 
@@ -194,7 +209,6 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB, bool AB_forbid
 
 			freq_AB = k;
 
-			assert(not AB_forbidden);
 			assert(Q.contains(AB));
 
 			//update only if frequency is at least minimum frequency (otherwise we will remove the pair afterwards)
@@ -277,7 +291,7 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 	cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
 
 	//output new rule
-	cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl << endl;
+	cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
 
 	for(itype j = P_AB; j<P_AB+L_AB;++j){
 
@@ -359,7 +373,7 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 	}
 
 	assert(Q.contains(AB));
-	synchronize_hf<queue_t>(Q, TP, T, AB, true); //automatically removes AB
+	synchronize_hf<queue_t>(Q, TP, T, AB); //automatically removes AB since new AB's frequency is 0
 	assert(not Q.contains(AB));
 
 	assert(Q.contains(Q.max()) or Q.size() == 0);
@@ -367,6 +381,8 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 	//advance next free dictionary symbol
 	X++;
+
+	cout << " current text size = " << T.number_of_non_blank_characters() << endl << endl;
 
 }
 

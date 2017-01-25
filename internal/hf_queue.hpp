@@ -1,4 +1,18 @@
 /*
+ *  This file is part of Re-Pair.
+ *  Copyright (c) by
+ *  Nicola Prezza <nicola.prezza@gmail.com>, Philip Bille, and Inge Li Gørtz
+ *
+ *   Re-Pair is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+
+ *   Re-Pair is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
+ *
  * hf_queue.hpp
  *
  *  Created on: Jan 12, 2017
@@ -117,12 +131,7 @@ public:
 
 		assert(max_size>0);
 
-		refresh_min_and_max();
-
-		assert(size() != 1 || MIN == MAX); //size == 1 -> MIN == MAX
-		assert(MIN != nullpair || size() == 0); //MIN == null -> size == 0
-
-		return MIN;
+		return B.min_pair();
 
 	}
 
@@ -134,12 +143,7 @@ public:
 
 		assert(max_size>0);
 
-		refresh_min_and_max();
-
-		assert(size() != 1 || MIN == MAX); //size == 1 -> MIN == MAX
-		assert(MAX != nullpair || size() == 0); //MAX == null -> size == 0
-
-		return MAX;
+		return B.max_pair();
 
 	}
 
@@ -154,9 +158,6 @@ public:
 
 		//if more than half of B's entries are empty, compact B.
 		if(B.size() < B.capacity()/2) compact_ll();
-
-		//this refreshes MIN/MAX if ab was one of them
-		refresh_min_and_max();
 
 		assert(not contains(ab));
 
@@ -182,9 +183,7 @@ public:
 	}
 
 	/*
-	 * decrease by 1 F_ab. Does not recompute min/max
-	 *
-	 * warning: this function invalidates min() / max(), which must be recomputed afterwards
+	 * decrease by 1 F_ab.
 	 *
 	 */
 	void decrease(cpair ab){
@@ -211,29 +210,11 @@ public:
 		itype idx = B.insert(el);
 		H.insert({ab,idx});
 
-		//if MIN/MAX have not yet been computed, compute them
-		refresh_min_and_max();
-
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
-		assert(MIN != nullpair);
-		assert(MAX != nullpair);
-		assert(contains(MIN));
-		assert(contains(MAX));
-
-		//if the inserted element's frequency is lower than that of the minimum, this is the new minimum
-		if(el.F_ab < operator[](MIN).F_ab){
-
-			MIN = ab;
-
-		}
-
-		//if the inserted element's frequency is larger than that of the max, this is the new max
-		if(el.F_ab > operator[](MAX).F_ab){
-
-			MAX = ab;
-
-		}
-
+		assert(min() != nullpair);
+		assert(max() != nullpair);
+		assert(contains(min()));
+		assert(contains(max()));
 		assert(H[ab]==idx);
 		assert(B[H[ab]].P_ab == el.P_ab);
 		assert(B[H[ab]].L_ab == el.L_ab);
@@ -259,42 +240,15 @@ public:
 		B[H[ab]].L_ab = el.L_ab;
 		B[H[ab]].F_ab = el.F_ab;
 
-		//if MIN/MAX have not yet been computed, compute them
-		refresh_min_and_max();
-
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
-		assert(MIN != nullpair);
-		assert(MAX != nullpair);
-		assert(contains(MIN));
-		assert(contains(MAX));
-
-		//if the inserted element's frequency is lower than that of the minimum, this is the new minimum
-		if(el.F_ab < operator[](MIN).F_ab){
-
-			MIN = ab;
-
-		}
-
-		//if the inserted element's frequency is larger than that of the max, this is the new max
-		if(el.F_ab > operator[](MAX).F_ab){
-
-			MAX = ab;
-
-		}
+		assert(min() != nullpair);
+		assert(max() != nullpair);
+		assert(contains(min()));
+		assert(contains(max()));
 
 	}
 
 private:
-
-	void refresh_min_and_max(){
-
-		if(MIN == cpair {null,null} or not contains(MIN))
-			MIN = B.min_pair();
-
-		if(MAX == cpair {null,null} or not contains(MAX))
-			MAX = B.max_pair();
-
-	}
 
 	/*
 	 * compact memory used by the linked list and re-compute
@@ -324,10 +278,6 @@ private:
 	const itype null = ~itype(0);
 
 	const cpair nullpair = {null,null};
-
-	cpair MIN = {null,null};
-	cpair MAX = {null,null};
-
 
 };
 

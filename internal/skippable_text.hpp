@@ -1,4 +1,18 @@
 /*
+ *  This file is part of Re-Pair.
+ *  Copyright (c) by
+ *  Nicola Prezza <nicola.prezza@gmail.com>, Philip Bille, and Inge Li Gørtz
+ *
+ *   Re-Pair is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+
+ *   Re-Pair is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
+ *
  * skippable_text.hpp
  *
  *  Created on: Jan 18, 2017
@@ -38,6 +52,7 @@ public:
 		assert(n>0);
 
 		this->n = n;
+		non_blank_characters = n;
 
 		width = 64 - __builtin_clzll(uint64_t(n));
 		width = std::max<itype>(8,width);
@@ -73,6 +88,7 @@ public:
 	 */
 	void set(itype i, ctype c){
 
+		assert(c != blank);
 		assert(i<n);
 		T[i] = c;
 
@@ -215,15 +231,25 @@ public:
 
 		T[i] = X;
 
+		assert(non_blank_characters>0);
+		non_blank_characters--;
+
 	}
 
 	/*
-	 * return size of the text including blnk characters
+	 * return size of the text including blank characters
 	 */
 	itype size(){
 
 		return n;
 
+	}
+
+	/*
+	 * return number of characters different than blank
+	 */
+	itype number_of_non_blank_characters(){
+		return non_blank_characters;
 	}
 
 private:
@@ -244,6 +270,8 @@ private:
 	//the first and last blank positions in a run of blank positions
 	//contain the length of the run of blanks
 	vector<bool> blank;
+
+	itype non_blank_characters = 0;
 
 	uint8_t width = 0;
 
