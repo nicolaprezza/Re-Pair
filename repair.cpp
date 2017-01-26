@@ -453,12 +453,15 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	cout << "initializing and sorting text positions vector ... " << flush;
 
-	//largest possible dictionary symbol
+	//largest possible high-frequency dictionary symbol
+	//at most max_d <= n high-freq dictionary symbols can be created; given that min. freq of
+	//a high-freq dictionary symbol is f=min_high_frequency and that every new dictionary symbol
+	//introduces a blank in the text, we have the inequality max_d * f <= n  <=> max_d <= n/f
 	itype max_d = 256+T.size()/min_high_frequency;
 
 	TP_t TP(&T,min_high_frequency,max_d);
 
-	cout << "done. Number of high-frequency pairs: " << TP.size() << endl;
+	cout << "done. Number of text positions containing a high-frequency pair: " << TP.size() << endl;
 
 	//for(uint64_t i = 0; i<n; ++i) cout << (uint8_t)int_to_char[T[i]];cout<<endl;
 
@@ -478,7 +481,7 @@ void compute_repair(string in, string out_rp, string out_g){
 	hf_q_t HFQ;
 	new_high_frequency_queue(HFQ, TP, T, min_high_frequency);
 
-	cout << "done. Number of high-frequency pairs = " << HFQ.size() << endl;
+	cout << "done. Number of distinct high-frequency pairs = " << HFQ.size() << endl;
 
 
 	cout << "Replacing high-frequency pairs ... " << endl;

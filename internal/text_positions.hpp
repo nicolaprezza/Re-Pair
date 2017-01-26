@@ -58,7 +58,7 @@ public:
 		if(max_alphabet_size>0){
 
 			H = vector<vector<ipair> >(max_alphabet_size,vector<ipair>(max_alphabet_size,{0,0}));
-			pair_visited = vector<vector<bool> >(max_alphabet_size,vector<bool>(max_alphabet_size,false));
+			//pair_visited = vector<vector<bool> >(max_alphabet_size,vector<bool>(max_alphabet_size,false));
 
 		}
 
@@ -167,7 +167,7 @@ public:
 	}
 
 	/*
-	 * cluster TP[i,...,j-1] by character pairs
+	 * cluster TP[i,...,j-1] by character pairs. Uses in-place counting-sort
 	 */
 	void sort(itype i, itype j){
 
@@ -177,12 +177,8 @@ public:
 		assert(j<=size());
 		assert(i<j);
 
-		/*if(H.size()==0){
-
-			std::sort(TP.begin()+i, TP.begin()+j, comparator(T));
-			return;
-
-		}*/
+		//mark in a bitvector only one position per distinct pair
+		auto distinct_pair_positions = vector<bool>(j-i,false);
 
 		//first step: count frequencies
 		for(itype k = i; k<j; ++k){
@@ -196,6 +192,9 @@ public:
 				assert(a<H.size());
 				assert(b<H.size());
 
+				//write a '1' iff this is the first time we see this pair
+				distinct_pair_positions[k-i] = (H[a][b].first==0);
+
 				H[a][b].first++;
 
 			}
@@ -207,30 +206,32 @@ public:
 		//second step: cumulate frequencies
 		for(itype k = i; k<j; ++k){
 
-			cpair ab = T->pair_starting_at(TP[k]);
-			ctype a = ab.first;
-			ctype b = ab.second;
+			if(distinct_pair_positions[k-i]){
 
-			if(ab != nullpair){
+				cpair ab = T->pair_starting_at(TP[k]);
+				ctype a = ab.first;
+				ctype b = ab.second;
+
+				assert(ab != nullpair);
 
 				assert(a<H.size());
 				assert(b<H.size());
 
-				if(not pair_visited[a][b]){
+				itype temp = H[a][b].first;
 
-					itype temp = H[a][b].first;
+				H[a][b].first = t;
+				H[a][b].second = t;
 
-					H[a][b].first = t;
-					H[a][b].second = t;
-
-					t += temp;
-					pair_visited[a][b] = true;
-
-				}
+				t += temp;
 
 			}
 
 		}
+
+		//itype dist_pairs = 0;
+
+		//clear bitvector content
+		for(itype k = i; k<j;++k) distinct_pair_positions[k-i] = false;
 
 		//t is the starting position of null pairs
 
@@ -240,7 +241,6 @@ public:
 		itype k = i; //current position in TP
 
 		//invariant: TP[i,...,k] is clustered
-
 		while(k<j){
 
 			cpair ab = T->pair_starting_at(TP[k]);
@@ -263,6 +263,12 @@ public:
 			}
 
 			if(k >= ab_start and k <= ab_end){
+
+				//if k is the first position where a distinct pair (other than nullpair)
+				//is seen in the sorted vector, mark it on distinct_pair_positions
+				distinct_pair_positions[k-i] = (k==ab_start and ab!=nullpair);
+
+				//dist_pairs += distinct_pair_positions[k-i];
 
 				//case 1: ab is the right place: increment k
 				k++;
@@ -300,66 +306,24 @@ public:
 
 		}
 
-		//restore H and pair_visited
+		//cout << "\n**** " << dist_pairs << " / " << (j-i) << endl;
+
+		//restore H
 		for(itype k = i; k<j; ++k){
 
-			cpair ab = T->pair_starting_at(TP[k]);
-			ctype a = ab.first;
-			ctype b = ab.second;
+			if(distinct_pair_positions[k-i]){
 
-			if(ab!=nullpair){
+				cpair ab = T->pair_starting_at(TP[k]);
+				ctype a = ab.first;
+				ctype b = ab.second;
+
+				assert(ab!=nullpair);
 
 				H[a][b] = {0,0};
-				pair_visited[a][b] = false;
 
 			}
 
 		}
-
-		//there cannot be more distinct pairs than j-i
-		//in the high-freq queue, there cannot be more pairs than size()/min_freq
-		/*uint64_t max_number_of_pairs = std::min(uint64_t(j-i),size()/min_freq);
-
-		auto H = hash_t(2*max_number_of_pairs);
-
-		//TODO use int_vector
-		vector<itype> temp(j-i);
-
-		for(itype k = i; k<j; ++k ){
-
-			cpair ab = T->pair_starting_at(TP[k]);
-
-			if(H.count(ab)==0){
-
-				vector<itype> v;
-				v.push_back(TP[k]);
-
-				H.insert({ab,v});
-
-			}else{
-
-				H[ab].push_back(TP[k]);
-
-			}
-
-		}
-
-		itype t=0;
-		for(auto p : H){
-
-			vector<itype> v = p.second;
-			for(auto pos : v) temp[t++] = pos;
-
-		}
-
-		for(itype k = i; k<j; ++k ){
-
-			assert(k<TP.size());
-			assert(k-i<temp.size());
-
-			TP[k] = temp[k-i];
-
-		}*/
 
 	}
 
@@ -518,7 +482,6 @@ private:
 
 	//hash to speed-up pair sorting (to linear time)
 	vector<vector<ipair> > H; //H[a][b] = <begin, end>. end = next position where to store ab
-	vector<vector<bool> > pair_visited;
 
 	//the array of text positions
 	int_vector<> TP;
