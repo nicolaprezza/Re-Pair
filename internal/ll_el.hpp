@@ -64,6 +64,8 @@ struct triple{
 
 public:
 
+	triple(){}
+
 	triple(itype P_ab, 	itype L_ab,	itype F_ab){
 
 		this->P_ab = P_ab;
@@ -72,9 +74,21 @@ public:
 
 	}
 
-	itype P_ab;
-	itype L_ab;
-	itype F_ab;
+	bool operator==(triple<itype> t){
+
+		return t.P_ab == P_ab and t.L_ab == L_ab and t.F_ab == F_ab;
+
+	}
+
+	bool operator!=(triple<itype> t){
+
+		return not operator==(t);
+
+	}
+
+	itype P_ab=0;
+	itype L_ab=0;
+	itype F_ab=0;
 
 };
 

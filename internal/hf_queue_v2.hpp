@@ -13,17 +13,12 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
  *
- * hf_queue.hpp
+ * hf_queue_v2_v2.hpp
  *
  *  Created on: Jan 12, 2017
  *      Author: nico
  *
- *  High-frequency pairs queue
- *
- *  This queue is a pair Q = <H,B> of structures, where:
- *
- *  - H: sigma x sigma -> int is a hash table pointing at elements in B
- *  - B is a linked list storing all high-frequency pairs
+ *  High-frequency pairs queue implemented by direct-addressing pairs
  *
  *  Supported operations:
  *
@@ -45,44 +40,41 @@
 
 using namespace std;
 
-#ifndef INTERNAL_HF_QUEUE_HPP_
-#define INTERNAL_HF_QUEUE_HPP_
-
+#ifndef INTERNAL_HF_QUEUE_V2_HPP_
+#define INTERNAL_HF_QUEUE_V2_HPP_
 
 /*
  * template on linked list type and integer type
  */
-template<typename ll_type = ll_vec32_t, typename hash_t = pair_hash32_t>
-class hf_queue{
+template<typename el_type = ll_el32_t, typename itype = uint32_t, typename ctype = uint32_t>
+class hf_queue_v2{
 
 public:
 
-	using itype = typename ll_type::int_type;
-	using ctype = typename ll_type::char_type;
+	using triple_t = triple<itype>;
+
+	typedef pair_hash<triple_t,itype,ctype> hash_t;
 
 	using cpair = pair<ctype,ctype>;
 	//using hash_t = std::unordered_map<cpair, itype>;
-
-	using triple_t = triple<itype>;
-	using el_type = typename ll_type::el_type;
 
 	/*
 	 * default constructor. Note that object must be created with the other constructor in order to be
 	 * usable (using object built with this constructor causes failed assertions)
 	 */
-	hf_queue(){
+	hf_queue_v2(){
 
 		min_freq = 0;
 
 	}
 
-	hf_queue(itype max_alphabet_size, itype min_freq) {
+	hf_queue_v2(itype max_alphabet_size, itype min_freq) {
 
 		assert(min_freq>1);
 
 		this->min_freq = min_freq;
 
-		H = hash_t(max_alphabet_size);
+		H = hash_t(max_alphabet_size, triple_t());
 
 	}
 
@@ -92,7 +84,7 @@ public:
 
 		this->min_freq = min_freq;
 
-		H.init(max_alphabet_size, ~itype(0));
+		H.init(max_alphabet_size, triple_t());
 
 	}
 
@@ -109,44 +101,88 @@ public:
 		assert(ab != nullpair);
 		assert(contains(ab));
 
-		auto e = B[H[ab]];
-
-		return {e.P_ab, e.L_ab, e.F_ab};
+		return H[ab];
 
 	}
 
 	/*
 	 * return pair with minimum frequency
-	 * if the minimum is not synchronized with the content of the queue, re-compute it.
 	 */
 	cpair min(){
 
-		return B.min_pair();
+		if(n==0) return nullpair;
+
+		itype min_F = null;
+		cpair min_pair = nullpair;
+
+		for(cpair p : pairs_in_hash){
+
+			if(contains(p)){
+
+				auto f = H[p].F_ab;
+
+				if(f < min_F){
+
+					min_F = f;
+					min_pair = p;
+
+				}
+
+			}
+
+		}
+
+		if(size() < pairs_in_hash.size()/2) rebuild();
+
+		assert(min_pair != nullpair);
+		return min_pair;
 
 	}
 
 	/*
 	 * return pair with maximum frequency
-	 * if the maximum is not synchronized with the content of the queue, re-compute it.
 	 */
 	cpair max(){
 
-		return B.max_pair();
+		if(n==0) return nullpair;
+
+		itype max_F = 0;
+		cpair max_pair = nullpair;
+
+		for(cpair p : pairs_in_hash){
+
+			if(contains(p)){
+
+				auto f = H[p].F_ab;
+
+				if(f > max_F){
+
+					max_F = f;
+					max_pair = p;
+
+				}
+
+			}
+
+		}
+
+		if(size() < pairs_in_hash.size()/2) rebuild();
+
+		assert(max_pair != nullpair);
+		return max_pair;
 
 	}
 
 	void remove(cpair ab){
 
 		assert(contains(ab));
-		assert(H[ab] != null);
+		assert(H[ab] != H.null_el());
 
-		B.remove(H[ab]);
 		H.erase(ab);
 
-		//if more than half of B's entries are empty, compact B.
-		if(B.size() < B.capacity()/2) compact_ll();
-
 		assert(not contains(ab));
+
+		n--;
 
 	}
 
@@ -163,22 +199,22 @@ public:
 	 */
 	itype size(){
 
-		return B.size();
+		return n;
 
 	}
 
 	/*
-	 * decrease by 1 F_ab.
+	 * decrease by 1 F_ab. Does not remove pair!
 	 *
 	 */
 	void decrease(cpair ab){
 
 		assert(contains(ab));
-		assert(H[ab] != null);
+		assert(H[ab] != H.null_el());
 
-		assert(B[H[ab]].F_ab > 0);
+		assert(H[ab].F_ab > 0);
 
-		B[H[ab]].F_ab--;
+		H[ab].F_ab--;
 
 	}
 
@@ -189,18 +225,20 @@ public:
 		assert(not contains(ab));
 		assert(el.F_ab >= min_freq);
 
-		itype idx = B.insert(el);
-		H.insert({ab,idx});
+		H.insert({ab,triple_t {el.P_ab, el.L_ab, el.F_ab}});
+
+		pairs_in_hash.push_back(ab);
+
+		n++;
 
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
 		assert(min() != nullpair);
 		assert(max() != nullpair);
 		assert(contains(min()));
 		assert(contains(max()));
-		assert(H[ab]==idx);
-		assert(B[H[ab]].P_ab == el.P_ab);
-		assert(B[H[ab]].L_ab == el.L_ab);
-		assert(B[H[ab]].F_ab == el.F_ab);
+		assert(H[ab].P_ab == el.P_ab);
+		assert(H[ab].L_ab == el.L_ab);
+		assert(H[ab].F_ab == el.F_ab);
 		assert(contains(ab));
 
 	}
@@ -215,9 +253,9 @@ public:
 		assert(contains(ab));
 		assert(el.F_ab >= min_freq);
 
-		B[H[ab]].P_ab = el.P_ab;
-		B[H[ab]].L_ab = el.L_ab;
-		B[H[ab]].F_ab = el.F_ab;
+		H[ab].P_ab = el.P_ab;
+		H[ab].L_ab = el.L_ab;
+		H[ab].F_ab = el.F_ab;
 
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
 		assert(min() != nullpair);
@@ -229,36 +267,54 @@ public:
 
 private:
 
-	/*
-	 * compact memory used by the linked list and re-compute
-	 * pair's indexes
-	 */
-	void compact_ll(){
+	void rebuild(){
 
-		B.compact();
+		//cout << "rebuild : " << pairs_in_hash.size() << flush;
 
-		for(itype i=0;i<B.size();++i){
+		itype i = 0;
+		itype j = 0;
 
-			auto ab = B[i].ab;
-			H.assign({ab,i});
+		while(j<pairs_in_hash.size()){
+
+			//search position j with a pair in the hash
+			while(j<pairs_in_hash.size() && not contains(pairs_in_hash[j])){
+
+				j++;
+
+			}
+
+			if(j<pairs_in_hash.size()){
+
+				pairs_in_hash[i] = pairs_in_hash[j];
+				i++;
+				j++;
+
+			}
 
 		}
+
+		assert(i==n);
+		pairs_in_hash.resize(i);
+
+		//cout << "-> " << pairs_in_hash.size() << endl;
 
 	}
 
 	itype min_freq;
 
-	ll_type B;
 	hash_t H;
+	vector<cpair> pairs_in_hash;
 
 	const itype null = ~itype(0);
 
 	const cpair nullpair = {null,null};
 
+	itype n = 0;//number of pairs in queue
+
 };
 
-typedef hf_queue<ll_vec32_t,pair_hash32_t> hf_queue32_t;
-typedef hf_queue<ll_vec64_t,pair_hash64_t> hf_queue64_t;
+typedef hf_queue_v2<ll_el32_t, uint32_t, uint32_t> hf_queue_v2_32_t;
+typedef hf_queue_v2<ll_el64_t, uint32_t, uint32_t> hf_queue_v2_64_t;
 
 
-#endif /* INTERNAL_HF_QUEUE_HPP_ */
+#endif /* INTERNAL_HF_QUEUE_V2_HPP_ */

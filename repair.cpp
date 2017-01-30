@@ -27,6 +27,8 @@
 #include <set>
 
 #include <hf_queue.hpp>
+#include <hf_queue_v2.hpp>
+
 #include <lf_queue.hpp>
 
 #include <ll_vec.hpp>
@@ -59,7 +61,7 @@ void help(){
 
 using text_t = skippable_text32_t;
 using TP_t = text_positions32_t;
-using hf_q_t = hf_queue32_t; //we insert ALL high-freq pairs in the high-freq queue
+using hf_q_t = hf_queue_v2_32_t; //we insert ALL high-freq pairs in the high-freq queue
 using lf_q_t = lf_queue32_t;
 using cpair = hf_q_t::cpair;
 using itype = uint32_t;
@@ -218,7 +220,7 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB){
 
 	assert(Q.contains(AB));
 
-	//it could be that now AB's frequecny is too small: delete it
+	//it could be that now AB's frequency is too small: delete it
 	if(freq_AB < Q.minimum_frequency()){
 
 		Q.remove(AB);//automatically re-computes min/max

@@ -18,7 +18,7 @@
  *  Created on: Jan 25, 2017
  *      Author: nico
  *
- * direct-access hash H : sigma x sigma -> integer
+ * direct-access hash H : sigma x sigma -> el_type
  *
  *
  */
@@ -31,7 +31,7 @@
 
 using namespace std;
 
-template<typename itype = uint32_t, typename ctype = uint32_t>
+template<typename el_type = uint32_t, typename itype = uint32_t, typename ctype = uint32_t>
 class pair_hash{
 
 	using cpair = pair<ctype,ctype>;
@@ -43,19 +43,23 @@ public:
 	/*
 	 * build a hash of size max_alphabet_size^2
 	 */
-	pair_hash(itype max_alphabet_size){
+	pair_hash(itype max_alphabet_size, el_type null_el){
 
-		H = vector<vector<itype> >(max_alphabet_size,vector<itype>(max_alphabet_size,null));
+		this->null = null_el;
 
-	}
-
-	void init(itype max_alphabet_size){
-
-		H = vector<vector<itype> >(max_alphabet_size,vector<itype>(max_alphabet_size,null));
+		H = vector<vector<el_type> >(max_alphabet_size,vector<el_type>(max_alphabet_size,null_el));
 
 	}
 
-	itype operator[](cpair ab){
+	void init(itype max_alphabet_size, el_type null_el){
+
+		this->null = null_el;
+
+		H = vector<vector<el_type> >(max_alphabet_size,vector<el_type>(max_alphabet_size,null_el));
+
+	}
+
+	el_type & operator[](cpair ab){
 
 		assert(H.size()>0);
 		assert(contains(ab));
@@ -83,12 +87,12 @@ public:
 
 	}
 
-	void insert(pair<cpair,itype> p){
+	void insert(pair<cpair,el_type> p){
 
 		assert(H.size()>0);
 
 		cpair ab = p.first;
-		itype i = p.second;
+		el_type i = p.second;
 
 		assert(ab != nullpair);
 
@@ -100,12 +104,12 @@ public:
 
 	}
 
-	void assign(pair<cpair,itype> p){
+	void assign(pair<cpair,el_type> p){
 
 		assert(H.size()>0);
 
 		cpair ab = p.first;
-		itype i = p.second;
+		el_type i = p.second;
 
 		assert(ab != nullpair);
 
@@ -126,19 +130,23 @@ public:
 
 	}
 
+	el_type null_el(){
+		return null;
+	}
+
 private:
 
-	const itype null = ~itype(0);
+	el_type null = el_type();
 	const ctype blank = ~itype(0);
 
 	const cpair nullpair = {blank,blank};
 
-	vector<vector<itype> > H;
+	vector<vector<el_type> > H;
 
 
 };
 
-typedef pair_hash<uint32_t,uint32_t> pair_hash32_t;
-typedef pair_hash<uint64_t,uint64_t> pair_hash64_t;
+typedef pair_hash<uint32_t,uint32_t,uint32_t> pair_hash32_t;
+typedef pair_hash<uint64_t,uint64_t,uint64_t> pair_hash64_t;
 
 #endif /* INTERNAL_PAIR_HASH_HPP_ */
