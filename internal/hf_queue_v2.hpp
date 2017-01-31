@@ -132,8 +132,6 @@ public:
 
 		}
 
-		if(size() < pairs_in_hash.size()/2) rebuild();
-
 		assert(min_pair != nullpair);
 		return min_pair;
 
@@ -165,8 +163,6 @@ public:
 			}
 
 		}
-
-		if(size() < pairs_in_hash.size()/2) rebuild();
 
 		assert(max_pair != nullpair);
 		return max_pair;
@@ -266,39 +262,6 @@ public:
 	}
 
 private:
-
-	void rebuild(){
-
-		//cout << "rebuild : " << pairs_in_hash.size() << flush;
-
-		itype i = 0;
-		itype j = 0;
-
-		while(j<pairs_in_hash.size()){
-
-			//search position j with a pair in the hash
-			while(j<pairs_in_hash.size() && not contains(pairs_in_hash[j])){
-
-				j++;
-
-			}
-
-			if(j<pairs_in_hash.size()){
-
-				pairs_in_hash[i] = pairs_in_hash[j];
-				i++;
-				j++;
-
-			}
-
-		}
-
-		assert(i==n);
-		pairs_in_hash.resize(i);
-
-		//cout << "-> " << pairs_in_hash.size() << endl;
-
-	}
 
 	itype min_freq;
 

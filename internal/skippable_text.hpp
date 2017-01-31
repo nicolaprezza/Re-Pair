@@ -47,23 +47,32 @@ public:
 	 * The size of each character is max(8, bitsize(n))
 	 *
 	 */
-	skippable_text(itype n){
+	skippable_text(itype n, ctype largest_symbol){
 
 		assert(n>0);
 
 		this->n = n;
 		non_blank_characters = n;
 
-		//width = 64 - __builtin_clzll(uint64_t(n));
-		//width = std::max<itype>(8,width);
+		width = 64 - __builtin_clzll(uint64_t(largest_symbol));
 
-		blank = vector<bool>(n,false);
+		assert(width > 0);
 
-		uint64_t n_blocks = n/block_size + (n%block_size != 0);
+		non_blank = vector<uint64_t>(n/64+(n%64!=0),~uint64_t(0));
+		skips = vector<uint64_t>(n/64+(n%64!=0),0);
 
-		T = vector<int_vector<> >(n_blocks,int_vector<>(block_size, 0, 7));
+		if(n%64 != 0){
 
-		//T = int_vector<>(n,0,width);
+			//there is a padding: set to 0 last bits in non_blank
+
+			uint64_t MASK = ~((~uint64_t(0)) >> (n%64));
+
+			non_blank[non_blank.size()-1] &= MASK;
+
+		}
+
+		T = int_vector<>(n, 0, width);
+
 
 	}
 
@@ -77,13 +86,13 @@ public:
 
 		assert(i<n);
 
-		return blank[i] ? BLANK : T[i/block_size][i%block_size];
+		return is_blank(i) ? BLANK : T[i];
 
 	}
 
 	bool is_blank(itype i){
 
-		return blank[i];
+		return not ((non_blank[i/64] >> (63-(i%64))) & uint64_t(1));
 
 	}
 
@@ -95,36 +104,7 @@ public:
 		assert(c != BLANK);
 		assert(i<n);
 
-		itype j = i/block_size;
-		itype o = i%block_size;
-		itype w = T[j].width();
-
-		itype c_width = 64 - __builtin_clzll(uint64_t(c));
-
-		if(c_width <= w){
-
-			T[j][o] = c;
-
-			assert(T[j][o] == c);
-
-		}else{
-
-			auto new_vec = int_vector<>(block_size,0,c_width);
-
-			for(itype k = 0; k<block_size; ++k) new_vec[k] = T[j][k];
-
-			new_vec[o] = c;
-
-			T[j].swap(new_vec);
-
-			assert(T[j][o] == c);
-
-		}
-
-		assert(T[j].width() == std::max(w,c_width));
-
-		assert(T[j][o] == c);
-		assert(blank[i] || operator[](i) == c);
+		T[i] = c;
 
 	}
 
@@ -138,23 +118,11 @@ public:
 	 */
 	cpair pair_starting_at(itype i){
 
-		assert(i<n);
+		assert(i<T.size());
 
-		//in this case T[i] is last text's character: no pairs starting at position i. Return blank pair.
-		if( i==n-1 || (blank[i+1] and i + int_at(i+1) +1 >= n)) return {BLANK,BLANK};
+		itype i_1 = is_blank(i) ? null : next_non_blank_position(i);
 
-		//if i contains blank, return blank pair
-		if(operator[](i)==BLANK) return {BLANK,BLANK};
-
-		//blank[i+1] -> the position pointed to ends before the text end
-		assert(not blank[i+1] || i + int_at(i+1) +1 < n);
-		//blank[i+1] -> the position pointed to does not contain a blank
-		assert(not blank[i+1] || (not blank[i + int_at(i+1) +1]));
-
-		ctype first = operator[](i);
-		ctype second = blank[i+1] ? int_at( i + int_at(i+1) +1 ) : int_at(i+1);
-
-		return {first,second};
+		return i_1 == null ? cpair {BLANK,BLANK} : cpair {T[i],T[i_1]};
 
 	}
 
@@ -163,28 +131,17 @@ public:
 	 *
 	 * this position skips runs of blanks.
 	 *
-	 * return blank pair if there is no next pair
+	 * return non_blank pair if there is no next pair
 	 *
 	 */
 	cpair next_pair(itype i){
 
-		assert(i<n);
+		assert(not is_blank(i));
+		assert(i<T.size());
 
-		//in this case T[i] is last text's character: no pairs starting at position i. Return blank pair.
-		if( i==n-1 || (blank[i+1] and i + int_at(i+1) +1 >= n)) return {BLANK,BLANK};
+		itype i_1 = next_non_blank_position(i);
 
-		//if i contains blank, return blank pair
-		if(operator[](i)==BLANK) return {BLANK,BLANK};
-
-		//blank[i+1] -> the position pointed to ends before the text end
-		assert(not blank[i+1] || i + int_at(i+1) +1 < n);
-		//blank[i+1] -> the position pointed to does not contain a blank
-		assert(not blank[i+1] || (not blank[i + int_at(i+1) +1]));
-
-		//next non-blank position
-		itype next_pos = blank[i+1] ? i + int_at(i+1) +1 : i+1;
-
-		return pair_starting_at(next_pos);
+		return i_1 == null ? cpair {BLANK,BLANK} : pair_starting_at(i_1);
 
 	}
 
@@ -194,26 +151,16 @@ public:
 	 *
 	 * this position skips runs of blanks.
 	 *
-	 * if i is first text's character or i is a blank position, return blank pair
+	 * if i is first text's character or i is a non_blank position, return blank pair
 	 */
 	cpair pair_ending_at(itype i){
 
-		assert(i>=0);
+		assert(not is_blank(i));
+		assert(i<T.size());
 
-		//if i is first text's character return blank pair
-		if(i==0 || (blank[i-1] and i < (int_at(i-1)+1))) return {BLANK,BLANK};
+		itype i_1 = prev_non_blank_position(i);
 
-		if(operator[](i)==BLANK) return {BLANK,BLANK};
-
-		//blank[i-1] -> the position pointed to does not start before the text
-		assert(not blank[i-1] || i  >= (int_at(i-1)+1));
-		//blank[i-1] -> the position pointed to does not contain BLANK
-		assert(not blank[i-1] || (not blank[i - (int_at(i-1)+1)]));
-
-		ctype first = blank[i-1] ? int_at( i - (int_at(i-1)+1) ) : int_at(i-1);
-		ctype second = operator[](i);
-
-		return {first,second};
+		return i_1 == null ? cpair {BLANK,BLANK} : cpair {T[i_1],T[i]};
 
 	}
 
@@ -227,49 +174,61 @@ public:
 	 * internally, this function replaces AB with X_, AB being the
 	 * pair starting at position i and _ being the blank character.
 	 *
-	 * the function automatically skips blank characters and merges blanks if needed
+	 * the function automatically skips non_blank characters and merges blanks if needed
 	 */
 	void replace(itype i, ctype X){
 
-		assert(not blank[i]);
-		assert(i<n-1);
+		assert(64 - __builtin_clzll(uint64_t(X)) <= width);
 
-		//blank[i+1] -> the position pointed to ends before the text end
-		assert(not blank[i+1] || i + int_at(i+1) +1 < n);
-		//blank[i+1] -> the position pointed to does not contain a blank
-		assert(not blank[i+1] || (not blank[i + int_at(i+1) +1]));
+		itype i2 = next_non_blank_position(i);
 
-		//position of next non-blank character
-		itype i_next = blank[i+1] ? i+int_at(i+1)+1 : i+1;
+		//there is a pair starting from position i
+		assert(i2 != null);
 
-		assert(i_next >= i+1);
+		itype i3 = next_non_blank_position(i2);
 
-		//length of run of blanks starting in position i+1, if any
-		itype len = i_next - (i+1);
+		itype b1 = i/64;
+		itype b2 = i2/64;
+		itype b3 = i3/64;
 
-		//length of the run following T[i_next]
-		itype next_len = i_next == n-1 ? 0 : ( blank[i_next+1] ? int_at(i_next+1) : 0 );
+		if(i3 != null && b3 > b1+1){
 
-		//set next char's position to blank
-		blank[i_next] = true;
+			//case 1: there is at least 1 block between i and i3: explicitly store skip length
 
-		itype new_len = len + next_len + 1;
+			//skip length
+			itype skip = (i3-i)-1;
 
-		assert(new_len < n);
-		assert(blank[i+new_len]);
+			//store skip lengths
+			skips[b1+1] = skip;
+			skips[b3-1] = skip;
 
-		//store run's length in the first run position
-		set(i+1, new_len);
-		assert(int_at(i+1) == new_len);
-		//store run's length in the last run position
-		set(i+new_len, new_len);
-		assert(int_at(i+new_len) == new_len);
+		}else if(i3 == null){
 
-		set(i, X);
-		assert(operator[](i) == X);
+			//case 2: i3 does not exist: pair starting at i is the last one
+
+			//if block b1 is either last or the one before last, no need to store explicitly skip length.
+			//otherwise we need to do it
+			if(b1 < non_blank.size() - 2){
+
+				skips[b1+1] = (T.size() - i)-1;
+
+			}
+
+		}//else{ case 3: i3 != null and b3 <= b1+1. Then no need to store skip length explicitly
+
+			//just set to 0 the bit under position i2 in not_blank (this is common to all cases: see below)
+
+		//}
+
+		//set to 0 the bit under position i2 in not_blank
+		uint64_t MASK = ~(uint64_t(1) << (63-(i2%64)));//11111110111...1, with a 0 at position i2%64
+		non_blank[b2] &= MASK;
 
 		assert(non_blank_characters>0);
 		non_blank_characters--;
+
+		//replace T[i] with X
+		T[i] = X;
 
 	}
 
@@ -283,7 +242,7 @@ public:
 	}
 
 	/*
-	 * return number of characters different than blank
+	 * return number of characters different than non_blank
 	 */
 	itype number_of_non_blank_characters(){
 		return non_blank_characters;
@@ -291,38 +250,157 @@ public:
 
 private:
 
-	itype int_at(itype i){
+	/*
+	 * input: a non-blank position i
+	 * output: next non-blank position.
+	 * if i is the last blank position, returns null
+	 *
+	 */
+	itype next_non_blank_position(itype i){
 
-		return T[i/block_size][i%block_size];
+		assert(i<T.size());
+		assert(not is_blank(i));
+
+		itype block = i/64;
+		itype off = i%64;
+
+		uint64_t MASK = off == 63 ? 0 : (~uint64_t(0)) >> (off+1);
+		itype next_off = off == 63 ? 64 : __builtin_clzll(non_blank[block] & MASK);
+
+		if(next_off < 64){
+
+			assert(block*64 + next_off > i);
+
+			return block*64 + next_off;
+
+		}
+
+		//case 2: next non-blank character is not within this block
+
+		//case 2.1: if this is last block, there isn't a next non-non_blank character
+		if(block == non_blank.size()-1) return null;
+
+		assert(block+1 < non_blank.size());
+
+		if(non_blank[block+1] != 0){
+
+
+			//case 2.2: next block contains a non-blank character
+
+			next_off = __builtin_clzll(non_blank[block+1]);
+
+			assert((block+1)*64 + next_off<T.size());
+
+			assert((block+1)*64 + next_off > i);
+
+			return (block+1)*64 + next_off;
+
+		}
+
+		//next block is the last and contains only blanks: there is no next non-blank character
+		if(block+1 == non_blank.size()-1) return null;
+
+		//next block contains only blanks: then, skips[block+1] contains the skip length
+		itype skip_len = skips[block+1];
+
+		itype i_1 = i + skip_len + 1;
+
+		//if i_1 is within text boundaries, then it cannot be blank
+		assert(i_1 >= T.size() || not is_blank(i_1));
+
+		//i_1 could go beyond text if T[i] is last non-blank text character
+		itype res = i_1<T.size() ? i_1 : null;
+
+		assert(res > i);
+
+		return res;
 
 	}
 
-	const ctype BLANK = ~ctype(0);
 
 	/*
-	 * TODO: replace T and blank with blocked compressed vectors. In this way we should get close to n bytes of usage for the text
-	 * and still keep constant time access/update
+	 * input: a non-blank position i
+	 * output: previous non-blank position.
+	 * if i is the first blank position, returns null
+	 *
 	 */
+	itype prev_non_blank_position(itype i){
+
+		assert(i<T.size());
+		assert(not is_blank(i));
+
+		itype block = i/64;
+		itype off = i%64;
+
+		uint64_t prev_bits = off == 0 ? 0 : (non_blank[block] >> (64-off));
+
+		if(prev_bits != 0){
+
+			//case 1: there is a non-blank position before position i inside this block
+
+			assert(i >= (__builtin_ctzll( prev_bits )+1));
+
+			itype i_1 = i - (__builtin_ctzll( prev_bits )+1);
+
+			assert(not is_blank(i_1));
+
+			return i_1;
+
+		}
+
+		//case 2: there isn't a non-blank position before position i inside this block
+
+		if(block == 0) return null; //this is the first block: i is the first non-blank position
+
+		if(non_blank[block-1] != 0){
+
+			//case 2.1: there is a non-blank position in the previous block
+
+			itype tz = __builtin_ctzll( non_blank[block-1] );
+
+			assert(tz<64);
+
+			itype i_1 = block*64 - (tz+1);
+
+			assert(not is_blank(i_1));
+
+			return i_1;
+
+		}
+
+		//case 2.2: there isn't a non-blank position in the previous block
+
+		if(block-1 == 0) return null; //previous block is the first block: i is the first non-blank position
+
+		itype skip_len = skips[block-1];
+
+		assert(i < (skip_len+1) || not is_blank(i - (skip_len+1)));
+
+		return i >= (skip_len+1) ? i - (skip_len+1) : null;
+
+	}
+
+
+	const ctype BLANK = ~ctype(0);
+	const ctype null = ~itype(0);
 
 	//this is the text
 	//int_vector<> T;
 
-	vector<int_vector<> > T;
-
-	//group T's entries in blocks of this size; every block uses
-	//as width the width of its largest integer.
-	const uint64_t block_size = 256;
+	int_vector<> T;
 
 	itype n = 0;
-
-	//this bitvector marks blank positions
-	//the first and last blank positions in a run of blank positions
-	//contain the length of the run of blanks
-	vector<bool> blank;
-
 	itype non_blank_characters = 0;
 
-	//uint8_t width = 0;
+	//this bitvector marks non_blank positions
+	//the first and last blank positions in a run of non_blank positions
+	//contain the length of the run of blanks
+	vector<uint64_t> non_blank;
+
+	//stores skip lengths
+	vector<uint64_t> skips;
+
+	uint8_t width = 0;
 
 
 };

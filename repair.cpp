@@ -61,7 +61,7 @@ void help(){
 
 using text_t = skippable_text32_t;
 using TP_t = text_positions32_t;
-using hf_q_t = hf_queue_v2_32_t; //we insert ALL high-freq pairs in the high-freq queue
+using hf_q_t = hf_queue32_t; //we insert ALL high-freq pairs in the high-freq queue
 using lf_q_t = lf_queue32_t;
 using cpair = hf_q_t::cpair;
 using itype = uint32_t;
@@ -312,13 +312,19 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 			//perform replacement
 			T.replace(i,X);
 
+			assert(By == T.blank_pair() || T.pair_starting_at(i) == cpair(X,By.second));
+
 			if(Q.contains(xA) && xA != AB){
+
+				assert(Q[xA].F_ab > 0);
 
 				Q.decrease(xA);
 
 			}
 
 			if(Q.contains(By) && By != AB){
+
+				assert(Q[By].F_ab > 0);
 
 				Q.decrease(By);
 
@@ -386,6 +392,17 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 void compute_repair(string in, string out_rp, string out_g){
 
+	/*
+	 * tradeoff between low-frequency and high-freq phase:
+	 *
+	 * - High-freq phase will use n^(2 - 2*alpha) words of memory and process approximately n^(1-alpha) pairs
+	 *   alpha should satisfy 0.5 < alpha < 1
+	 *
+	 * - Low-freq phase will use n^alpha words of memory
+	 *
+	 */
+	double alpha = 0.6;
+
 	itype n;
 	itype sigma = 0; //alphabet size
 
@@ -414,8 +431,7 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	//min_high_frequency = std::sqrt(n);
 
-	//n^(2/3)
-	min_high_frequency = std::cbrt(  uint64_t(n)*uint64_t(n)  );
+	min_high_frequency = std::pow(  n, alpha  );// n^(alpha)
 
 	min_high_frequency = min_high_frequency <2 ? 2 : min_high_frequency;
 
@@ -424,10 +440,18 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	itype width = 64 - __builtin_clzll(uint64_t(n));
 
-	cout << "log_2 n = " << width << " bits"  << endl << endl;
+	cout << "log_2 n = " << width << " bits"  << endl;
+
+	//largest possible high-frequency dictionary symbol
+	//at most max_d <= n high-freq dictionary symbols can be created; given that min. freq of
+	//a high-freq dictionary symbol is f=min_high_frequency and that every new dictionary symbol
+	//introduces a blank in the text, we have the inequality max_d * f <= n  <=> max_d <= n/f
+	itype max_d = 256+n/min_high_frequency;
+
+	cout << "Max high-frequency dictionary symbol = " << max_d << endl << endl;
 
 	//initialize text and text positions
-	text_t T(n);
+	text_t T(n,max_d);
 
 	itype j = 0;
 
@@ -454,12 +478,6 @@ void compute_repair(string in, string out_rp, string out_g){
 	cout << "alphabet size is " << sigma  << endl << endl;
 
 	cout << "initializing and sorting text positions vector ... " << flush;
-
-	//largest possible high-frequency dictionary symbol
-	//at most max_d <= n high-freq dictionary symbols can be created; given that min. freq of
-	//a high-freq dictionary symbol is f=min_high_frequency and that every new dictionary symbol
-	//introduces a blank in the text, we have the inequality max_d * f <= n  <=> max_d <= n/f
-	itype max_d = 256+T.size()/min_high_frequency;
 
 	TP_t TP(&T,min_high_frequency,max_d);
 

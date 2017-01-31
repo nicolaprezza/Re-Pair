@@ -82,6 +82,8 @@ public:
 			ctype a = p.first;
 			ctype b = p.second;
 
+			assert(p != T->blank_pair());
+
 			assert(a<256);
 			assert(b<256);
 
@@ -341,111 +343,6 @@ public:
 		return TP.size();
 
 	}
-
-	/*itype number_of_pairs(){
-
-		assert(content == pairs);
-		return n_pairs;
-
-	}*/
-
-	/*
-	 * this function turns the object from array of text positions to array of pairs <freq, text_pos>
-	 * keep only pairs with minimum frequency min_freq (included)
-	 *
-	 */
-	/*void extract_frequencies(itype min_freq = 2){
-
-		assert(content == text_pos);
-
-		cout << " sorting ... " << flush;
-		std::sort(TP.begin(),TP.end(), comparator(T));
-		cout << "done. counting ... " << endl;
-
-		content = pairs;
-
-		itype i = 0; //current write position on TP
-		itype j = 0; //current read position on TP
-		n_pairs = 0; //number of pairs <freq, text_pos>
-
-		int old_perc = 0;
-		int perc;
-
-		while(j<n){
-
-			perc = (100*j)/n;
-
-			if(perc > old_perc+4){
-				cout << " " << perc << "%" << endl;
-				old_perc=perc;
-			}
-
-			itype k = 1; //current pair frequency
-
-			while(	j<TP.size()-1 &&
-					T->pair_starting_at(TP[j]) != T->blank_pair() &&
-					T->pair_starting_at(TP[j]) == T->pair_starting_at(TP[j+1]) ){
-
-				j++;
-				k++;
-
-			}
-
-			if(k>=min_freq){
-
-				itype text_pos = TP[j];
-				TP[i] = k;
-				TP[i+1] = text_pos;
-				i += 2;
-				n_pairs++;
-
-				//cout << T->pair_starting_at(TP[j]).first << ", " << T->pair_starting_at(TP[j]).second << " -> " << k << endl;
-
-			}
-
-			//advance to next pair (or to end of TP)
-			j++;
-
-		}
-
-		cout << " done." << endl;
-
-	}*/
-
-	/*
-	 * get i-th pair <freq, text_pos>.
-	 * this object must be in the state 'frequencies' in order to call this function
-	 */
-	/*ipair get_pair(itype i){
-
-		assert(content == pairs);
-		assert(i<n_pairs);
-
-		return {TP[2*i],TP[2*i+1]};
-
-	}*/
-
-
-	/*
-	 * return frequencies of all pairs in a compact int_vector. Frequencies are sorted in decreasing order
-	 */
-	/*int_vector<> get_sorted_pair_frequencies(){
-
-		assert(content == pairs);
-
-		int_vector<> result = int_vector<>(n_pairs,0,width);
-
-		for(uint64_t i=0;i<n_pairs;++i){
-
-			result[i] = get_pair(i).first;
-
-		}
-
-		std::sort(result.begin(),result.end(), [](uint64_t x, uint64_t y) -> bool {return x>y;} );
-
-		return result;
-
-	}*/
 
 
 private:
