@@ -116,7 +116,8 @@ public:
 
 		}
 
-		TP = int_vector<>(hf_pairs,0,width);
+		//TP = int_vector<>(hf_pairs,0,width);
+		TP = vector<itype>(hf_pairs,0);
 
 		//fill TP: cluster high-freq pairs
 		for(itype i = 0;i<T->size()-1;++i){
@@ -385,7 +386,8 @@ private:
 	vector<vector<ipair> > H; //H[a][b] = <begin, end>. end = next position where to store ab
 
 	//the array of text positions
-	int_vector<> TP;
+	//int_vector<> TP;
+	vector<itype> TP;
 
 	const itype null = ~itype(0);
 	const cpair nullpair = {null,null};

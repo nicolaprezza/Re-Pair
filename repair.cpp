@@ -58,19 +58,20 @@ void help(){
 
 }
 
-/*
+
 using text_t = skippable_text32_t;
 using TP_t = text_positions32_t;
 using hf_q_t = hf_queue32_t;
 using lf_q_t = lf_queue32_t;
 using itype = uint32_t;
-*/
 
+/*
 using text_t = skippable_text64_t;
 using TP_t = text_positions64_t;
 using hf_q_t = hf_queue64_t;
 using lf_q_t = lf_queue64_t;
 using itype = uint64_t;
+*/
 
 using cpair = hf_q_t::cpair;
 
@@ -349,7 +350,7 @@ void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 		itype i = TP[j];
 
-		assert(T.pair_starting_at(i) != AB); //we replaced all AB's ...
+		assert(T.pair_starting_at(i) != AB); //we replaced all ABs ...
 
 		if(T[i] == X){
 
@@ -409,7 +410,7 @@ void compute_repair(string in, string out_rp, string out_g){
 	 * - Low-freq phase will use n^alpha words of memory
 	 *
 	 */
-	double alpha = 0.6;
+	double alpha = 0.66;
 
 	itype n;
 	itype sigma = 0; //alphabet size

@@ -54,7 +54,9 @@ public:
 		this->n = n;
 		non_blank_characters = n;
 
-		width = 64 - clz(uint64_t(largest_symbol));
+		eof = largest_symbol+1;
+
+		width = 64 - clz(eof);
 
 		assert(width > 0);
 
@@ -70,7 +72,8 @@ public:
 		//vector storing length of skips. Init with all 0
 		skips = vector<uint64_t>(n/64+(n%64!=0),0);
 
-		T = int_vector<>(n, 0, width);
+		//T = int_vector<>(n, 0, width);
+		T = vector<uint16_t>(n, 0); width = 16;
 
 	}
 
@@ -118,11 +121,17 @@ public:
 
 		assert(i<T.size());
 
-		itype i_1 = is_blank(i) ? null : next_non_blank_position(i);
+		cpair result = (i == n-1 or is_blank(i)) ? blank_pair() :
+						(T[i+1] == eof ? blank_pair() : cpair(T[i],T[i+1]));
 
-		return i_1 == null ? blank_pair() : cpair {T[i],T[i_1]};
+		//check that we get the same results by jumping or reading next character
+		assert(result == pair_starting_at_1(i));
+
+		return result;
 
 	}
+
+
 
 	/*
 	 * return pair that follows pair starting at position i
@@ -153,11 +162,27 @@ public:
 	 */
 	cpair pair_ending_at(itype i){
 
+		return pair_ending_at_1(i);
+
 		assert(i<T.size());
 
-		itype i_1 = is_blank(i) ? null : prev_non_blank_position(i);
+		cpair result;
 
-		return i_1 == null ? blank_pair() : cpair {T[i_1],T[i]};
+		if(i<2 || (is_blank(i-1) && (not is_blank(i-2)))){
+
+			result = pair_ending_at_1(i);
+
+		}else{
+
+			//i >= 2 and (not_blank(i-1) OR blank(i-2))
+			result = is_blank(i) ? blank_pair() : cpair(T[i-1],T[i]);
+
+		}
+
+		//check that we get the same results by jumping or reading next character
+		assert(result == pair_ending_at_1(i));
+
+		return result;
 
 	}
 
@@ -176,13 +201,15 @@ public:
 	void replace(itype i, ctype X){
 
 		assert(64 - clz(uint64_t(X)) <= width);
-		assert(i<n);
+		assert(i<n-1);
 		assert(not is_blank(i));
 
 		itype i2 = next_non_blank_position(i);
 
 		//there is a pair starting from position i
 		assert(i2 != null);
+
+		assert(T[i+1] == T[i2]);
 
 		itype i3 = next_non_blank_position(i2);
 
@@ -234,6 +261,29 @@ public:
 		//replace T[i] with X
 		T[i] = X;
 
+		assert(is_blank(i+1));
+
+		//store in T[i+1] the next character: this allows avoiding
+		//jumping inside function pair_starting_at
+		T[i+1] = i3 == null ? eof : T[i3];
+
+		//fix also previous non-blank position
+		itype i0 = prev_non_blank_position(i);
+		if(i0 != null){
+
+			assert(i0+1<n);
+			T[i0+1] = X;
+
+		}
+
+		if(i3 != null && i3>1 && is_blank(i3-2)){
+
+			assert(i3>0);
+			assert(is_blank(i3-1));
+			T[i3-1] = X;
+
+		}
+
 	}
 
 	/*
@@ -263,6 +313,25 @@ private:
 	uint64_t ctz(uint64_t x){
 
 		return x == 0 ? 64 : __builtin_ctzll(x);
+
+	}
+
+	cpair pair_starting_at_1(itype i){
+
+		assert(i<T.size());
+
+		return((is_blank(i) ? null : next_non_blank_position(i)) == null ?
+				blank_pair() : cpair {T[i],T[(is_blank(i) ? null : next_non_blank_position(i))]});
+
+	}
+
+	cpair pair_ending_at_1(itype i){
+
+		assert(i<T.size());
+
+		itype i_1 = is_blank(i) ? null : prev_non_blank_position(i);
+
+		return i_1 == null ? blank_pair() : cpair {T[i_1],T[i]};
 
 	}
 
@@ -433,9 +502,9 @@ private:
 	const ctype null = ~itype(0);
 
 	//this is the text
-	//int_vector<> T;
 
-	int_vector<> T;
+	//int_vector<> T;
+	vector<uint16_t> T;
 
 	itype n = 0;
 	itype non_blank_characters = 0;
@@ -450,6 +519,7 @@ private:
 
 	uint8_t width = 0;
 
+	uint64_t eof;
 
 };
 
