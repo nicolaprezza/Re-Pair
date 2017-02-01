@@ -26,9 +26,6 @@
 #include <vector>
 #include <set>
 
-#include <hf_queue.hpp>
-#include <hf_queue_v2.hpp>
-
 #include <lf_queue.hpp>
 
 #include <ll_vec.hpp>
@@ -41,6 +38,8 @@
 #include <math.h>
 
 #include <sdsl/int_vector.hpp>
+
+#include "internal/hf_queue.hpp"
 
 using namespace std;
 using namespace sdsl;
@@ -59,13 +58,22 @@ void help(){
 
 }
 
+/*
 using text_t = skippable_text32_t;
 using TP_t = text_positions32_t;
-using hf_q_t = hf_queue32_t; //we insert ALL high-freq pairs in the high-freq queue
+using hf_q_t = hf_queue32_t;
 using lf_q_t = lf_queue32_t;
-using cpair = hf_q_t::cpair;
 using itype = uint32_t;
-//using ctype = uint32_t;
+*/
+
+using text_t = skippable_text64_t;
+using TP_t = text_positions64_t;
+using hf_q_t = hf_queue64_t;
+using lf_q_t = lf_queue64_t;
+using itype = uint64_t;
+
+using cpair = hf_q_t::cpair;
+
 
 //next free dictionary symbol
 itype X=0;

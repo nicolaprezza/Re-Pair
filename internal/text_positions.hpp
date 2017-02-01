@@ -185,19 +185,23 @@ public:
 		//first step: count frequencies
 		for(itype k = i; k<j; ++k){
 
-			cpair ab = T->pair_starting_at(TP[k]);
-			ctype a = ab.first;
-			ctype b = ab.second;
+			if(not T->is_blank(TP[k])){
 
-			if(ab != nullpair){
+				cpair ab = T->pair_starting_at(TP[k]);
+				ctype a = ab.first;
+				ctype b = ab.second;
 
-				assert(a<H.size());
-				assert(b<H.size());
+				if(ab != nullpair ){
 
-				//write a '1' iff this is the first time we see this pair
-				distinct_pair_positions[k-i] = (H[a][b].first==0);
+					assert(a<H.size());
+					assert(b<H.size());
 
-				H[a][b].first++;
+					//write a '1' iff this is the first time we see this pair
+					distinct_pair_positions[k-i] = (H[a][b].first==0);
+
+					H[a][b].first++;
+
+				}
 
 			}
 

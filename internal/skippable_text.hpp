@@ -54,25 +54,23 @@ public:
 		this->n = n;
 		non_blank_characters = n;
 
-		width = 64 - __builtin_clzll(uint64_t(largest_symbol));
+		width = 64 - clz(uint64_t(largest_symbol));
 
 		assert(width > 0);
 
-		non_blank = vector<uint64_t>(n/64+(n%64!=0),~uint64_t(0));
-		skips = vector<uint64_t>(n/64+(n%64!=0),0);
+		non_blank = vector<uint64_t>(n/64+(n%64!=0),~uint64_t(0));//init all '1'
 
-		if(n%64 != 0){
-
-			//there is a padding: set to 0 last bits in non_blank
+		if(n%64 != 0){//set to 0 bits in the right padding
 
 			uint64_t MASK = ~((~uint64_t(0)) >> (n%64));
-
 			non_blank[non_blank.size()-1] &= MASK;
 
 		}
 
-		T = int_vector<>(n, 0, width);
+		//vector storing length of skips. Init with all 0
+		skips = vector<uint64_t>(n/64+(n%64!=0),0);
 
+		T = int_vector<>(n, 0, width);
 
 	}
 
@@ -97,7 +95,7 @@ public:
 	}
 
 	/*
-	 * set i-th position to character c.
+	 * set i-th position to character c != BLANK
 	 */
 	void set(itype i, ctype c){
 
@@ -109,9 +107,9 @@ public:
 	}
 
 	/*
-	 * return pair starting at position i < n-1;
+	 * return pair starting at position i < n;
 	 *
-	 * this position skips runs of blanks.
+	 * this position skips runs of blanks in constant time.
 	 *
 	 * if i is last text's character or i is a blank position, return blank pair
 	 *
@@ -122,7 +120,7 @@ public:
 
 		itype i_1 = is_blank(i) ? null : next_non_blank_position(i);
 
-		return i_1 == null ? cpair {BLANK,BLANK} : cpair {T[i],T[i_1]};
+		return i_1 == null ? blank_pair() : cpair {T[i],T[i_1]};
 
 	}
 
@@ -131,7 +129,7 @@ public:
 	 *
 	 * this position skips runs of blanks.
 	 *
-	 * return non_blank pair if there is no next pair
+	 * return blank pair if there is no next pair or if position i contains a blank
 	 *
 	 */
 	cpair next_pair(itype i){
@@ -141,7 +139,7 @@ public:
 
 		itype i_1 = next_non_blank_position(i);
 
-		return i_1 == null ? cpair {BLANK,BLANK} : pair_starting_at(i_1);
+		return i_1 == null ? blank_pair() : pair_starting_at(i_1);
 
 	}
 
@@ -155,12 +153,11 @@ public:
 	 */
 	cpair pair_ending_at(itype i){
 
-		assert(not is_blank(i));
 		assert(i<T.size());
 
-		itype i_1 = prev_non_blank_position(i);
+		itype i_1 = is_blank(i) ? null : prev_non_blank_position(i);
 
-		return i_1 == null ? cpair {BLANK,BLANK} : cpair {T[i_1],T[i]};
+		return i_1 == null ? blank_pair() : cpair {T[i_1],T[i]};
 
 	}
 
@@ -178,7 +175,9 @@ public:
 	 */
 	void replace(itype i, ctype X){
 
-		assert(64 - __builtin_clzll(uint64_t(X)) <= width);
+		assert(64 - clz(uint64_t(X)) <= width);
+		assert(i<n);
+		assert(not is_blank(i));
 
 		itype i2 = next_non_blank_position(i);
 
@@ -191,18 +190,32 @@ public:
 		itype b2 = i2/64;
 		itype b3 = i3/64;
 
-		if(i3 != null && b3 > b1+1){
+		//set to 0 the bit under position i2 in not_blank
+		uint64_t MASK = ~(uint64_t(1) << (63-(i2%64)));//11111110111...1, with a 0 at position i2%64
+		non_blank[b2] &= MASK;
 
-			//case 1: there is at least 1 block between i and i3: explicitly store skip length
+		assert(non_blank_characters>0);
+		non_blank_characters--;
+
+		if(i3 != null and b3 > b1+1){
+
+			//case 1: there is at least 1 block between i and i3: explicitly store skip
+			//length in block following b1 and in block preceding b3
 
 			//skip length
 			itype skip = (i3-i)-1;
 
 			//store skip lengths
+
+			assert(non_blank[b1+1] == 0);
+			assert(non_blank[b3-1] == 0);
+
 			skips[b1+1] = skip;
 			skips[b3-1] = skip;
 
-		}else if(i3 == null){
+		}
+
+		if(i3 == null){
 
 			//case 2: i3 does not exist: pair starting at i is the last one
 
@@ -210,22 +223,13 @@ public:
 			//otherwise we need to do it
 			if(b1 < non_blank.size() - 2){
 
+				assert(non_blank[b1+1] == 0);
+
 				skips[b1+1] = (T.size() - i)-1;
 
 			}
 
-		}//else{ case 3: i3 != null and b3 <= b1+1. Then no need to store skip length explicitly
-
-			//just set to 0 the bit under position i2 in not_blank (this is common to all cases: see below)
-
-		//}
-
-		//set to 0 the bit under position i2 in not_blank
-		uint64_t MASK = ~(uint64_t(1) << (63-(i2%64)));//11111110111...1, with a 0 at position i2%64
-		non_blank[b2] &= MASK;
-
-		assert(non_blank_characters>0);
-		non_blank_characters--;
+		}
 
 		//replace T[i] with X
 		T[i] = X;
@@ -250,6 +254,18 @@ public:
 
 private:
 
+	uint64_t clz(uint64_t x){
+
+		return x == 0 ? 64 : __builtin_clzll(x);
+
+	}
+
+	uint64_t ctz(uint64_t x){
+
+		return x == 0 ? 64 : __builtin_ctzll(x);
+
+	}
+
 	/*
 	 * input: a non-blank position i
 	 * output: next non-blank position.
@@ -261,59 +277,91 @@ private:
 		assert(i<T.size());
 		assert(not is_blank(i));
 
+		itype result = null;
+
 		itype block = i/64;
 		itype off = i%64;
 
 		uint64_t MASK = off == 63 ? 0 : (~uint64_t(0)) >> (off+1);
-		itype next_off = off == 63 ? 64 : __builtin_clzll(non_blank[block] & MASK);
+
+		itype next_off = off == 63 ? 64 : clz(non_blank[block] & MASK);
 
 		if(next_off < 64){
 
-			assert(block*64 + next_off > i);
+			result = block*64 + next_off;
 
-			return block*64 + next_off;
+			assert(result > i);
+
+		}else{
+
+			//case 2: next non-blank character is not within this block
+
+			//case 2.1: if this is last block, there isn't a next non-non_blank character
+			if(block != non_blank.size()-1){//if ==, result is null
+
+				assert(block+1 < non_blank.size());
+
+				if(non_blank[block+1] != 0){
+
+					//case 2.2: next block contains a non-blank character
+
+					next_off = clz(non_blank[block+1]);
+
+					result = (block+1)*64 + next_off;
+
+					assert(result<T.size());
+					assert(result > i);
+
+				}else{
+
+					if(block+1 == non_blank.size()-1){
+
+						//if block+1 == non_blank.size()-1 then there is no pair starting at position i
+						assert(non_blank[block+1] == 0);
+
+					}else{
+
+						assert(non_blank[block+1] == 0);
+
+						//next block contains only blanks: then, skips[block+1] contains the skip length
+						itype skip_len = skips[block+1];
+
+						itype i_1 = i + skip_len + 1;
+
+						//if i_1 is within text boundaries, then it cannot be blank
+						assert(i_1 >= T.size() || not is_blank(i_1));
+
+						//i_1 could go beyond text if T[i] is last non-blank text character
+						result = i_1<T.size() ? i_1 : null;
+
+						assert(result > i);
+
+					}
+
+				}
+
+			}
 
 		}
 
-		//case 2: next non-blank character is not within this block
+		return result;
 
-		//case 2.1: if this is last block, there isn't a next non-non_blank character
-		if(block == non_blank.size()-1) return null;
+	}
 
-		assert(block+1 < non_blank.size());
+	/*
+	 * trivial linear-time implementation for debugging
+	 */
+	itype next_non_blank_position_trivial(itype i){
 
-		if(non_blank[block+1] != 0){
+		assert(not is_blank(i));
 
+		if(i==T.size()-1) return null;
 
-			//case 2.2: next block contains a non-blank character
+		itype j = i+1;
 
-			next_off = __builtin_clzll(non_blank[block+1]);
+		while(j < T.size() && is_blank(j)){j++;}
 
-			assert((block+1)*64 + next_off<T.size());
-
-			assert((block+1)*64 + next_off > i);
-
-			return (block+1)*64 + next_off;
-
-		}
-
-		//next block is the last and contains only blanks: there is no next non-blank character
-		if(block+1 == non_blank.size()-1) return null;
-
-		//next block contains only blanks: then, skips[block+1] contains the skip length
-		itype skip_len = skips[block+1];
-
-		itype i_1 = i + skip_len + 1;
-
-		//if i_1 is within text boundaries, then it cannot be blank
-		assert(i_1 >= T.size() || not is_blank(i_1));
-
-		//i_1 could go beyond text if T[i] is last non-blank text character
-		itype res = i_1<T.size() ? i_1 : null;
-
-		assert(res > i);
-
-		return res;
+		return j == T.size() ? null : j;
 
 	}
 
@@ -338,9 +386,9 @@ private:
 
 			//case 1: there is a non-blank position before position i inside this block
 
-			assert(i >= (__builtin_ctzll( prev_bits )+1));
+			assert(i >= (ctz( prev_bits )+1));
 
-			itype i_1 = i - (__builtin_ctzll( prev_bits )+1);
+			itype i_1 = i - (ctz( prev_bits )+1);
 
 			assert(not is_blank(i_1));
 
@@ -356,7 +404,7 @@ private:
 
 			//case 2.1: there is a non-blank position in the previous block
 
-			itype tz = __builtin_ctzll( non_blank[block-1] );
+			itype tz = ctz( non_blank[block-1] );
 
 			assert(tz<64);
 
