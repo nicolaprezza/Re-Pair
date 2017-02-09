@@ -53,7 +53,7 @@ public:
 	text_positions_hf(skippable_text_hf<itype,ctype> * T, itype min_freq){
 
 		//hash will be of size maxd*maxd words
-		uint64_t maxd = std::max(uint64_t(std::pow(  T->size(), 0.4  )),uint64_t(256));
+		uint64_t maxd = std::max(uint64_t(std::pow(  T->size(), 0.4  )),uint64_t(T->get_max_symbol()+1));
 
 		//hash to accelerate sorting of pairs
 		H = vector<vector<ipair> >(maxd,vector<ipair>(maxd,{0,0}));
@@ -137,12 +137,13 @@ public:
 	 *
 	 * replace content with text positions 0,...,n-1
 	 *
-	 * WARNING: this function does not sort
+	 * WARNING: this function does not sort text positions
 	 *
 	 */
 	void resize(){
 
 		TP.resize(T->size());
+		//TP = vector<itype>(T->size());
 		//TP.shrink_to_fit();
 
 		itype i=0;
