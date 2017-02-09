@@ -31,18 +31,18 @@
 #include <ll_vec.hpp>
 #include <ll_el.hpp>
 
-#include <skippable_text.hpp>
-#include <text_positions.hpp>
-
 #include <fstream>
-#include <math.h>
-
-#include <sdsl/int_vector.hpp>
+#include <cmath>
 
 #include "internal/hf_queue.hpp"
+#include "internal/skippable_text_hf.hpp"
+#include "internal/text_positions_hf.hpp"
+#include "internal/text_positions_lf.hpp"
+
+#include "internal/skippable_text_lf.hpp"
+
 
 using namespace std;
-using namespace sdsl;
 
 void help(){
 
@@ -58,15 +58,19 @@ void help(){
 
 }
 
+//high/low frequency text type
+using text_hf_t = skippable_text_hf32_t;
+using text_lf_t = skippable_text_lf32_t;
 
-using text_t = skippable_text32_t;
-using TP_t = text_positions32_t;
+using TP_hf_t = text_positions_hf32_t;
+using TP_lf_t = text_positions_lf32_t;
+
 using hf_q_t = hf_queue32_t;
 using lf_q_t = lf_queue32_t;
 using itype = uint32_t;
 
 /*
-using text_t = skippable_text64_t;
+using text_hf_t = skippable_text64_t;
 using TP_t = text_positions64_t;
 using hf_q_t = hf_queue64_t;
 using lf_q_t = lf_queue64_t;
@@ -85,7 +89,7 @@ itype X=0;
  * assumptions: TP is sorted by character pairs, Q is void
  *
  */
-void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_freq){
+void new_high_frequency_queue(hf_q_t & Q, TP_hf_t & TP, text_hf_t & T, uint64_t min_freq){
 
 	itype j = 0; //current position on TP
 	itype n = TP.size();
@@ -165,7 +169,7 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
  * synchronize queue in range corresponding to pair AB.
  */
 template<typename queue_t>
-void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB){
+void synchronize_hf(queue_t & Q, TP_hf_t & TP, text_hf_t & T, cpair AB){
 
 	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
 
@@ -253,7 +257,7 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_t & T, cpair AB){
  *
  */
 template<typename queue_t>
-void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_t & T, cpair ab){
+void synchro_or_remove_pair(queue_t & Q, TP_hf_t & TP, text_hf_t & T, cpair ab){
 
 	assert(Q.contains(ab));
 
@@ -278,9 +282,9 @@ void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_t & T, cpair ab){
 }
 
 template<typename queue_t>
-void substitution_round(queue_t & Q, TP_t & TP, text_t & T){
+void substitution_round(queue_t & Q, TP_hf_t & TP, text_hf_t & T){
 
-	using ctype = text_t::char_type;
+	using ctype = text_hf_t::char_type;
 
 	//compute max and min
 	cpair AB = Q.max();
@@ -459,70 +463,83 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	cout << "Max high-frequency dictionary symbol = " << max_d << endl << endl;
 
-	//initialize text and text positions
-	text_t T(n,max_d);
 
-	itype j = 0;
+	//the low-freq text
+	text_lf_t T_lf;
+	TP_lf_t TP_lf;
 
-	cout << "filling skippable text with text characters ... " << flush;
 
-	char c;
-	while(ifs.get(c)){
+	{
 
-		if(char_to_int[uint8_t(c)] == null){
+		//initialize text and text positions
+		text_hf_t T_hf(n,max_d);
 
-			char_to_int[uint8_t(c)] = sigma;
-			int_to_char[sigma] = uint8_t(c);
+		itype j = 0;
 
-			sigma++;
+		cout << "filling skippable text with text characters ... " << flush;
+
+		char c;
+		while(ifs.get(c)){
+
+			if(char_to_int[uint8_t(c)] == null){
+
+				char_to_int[uint8_t(c)] = sigma;
+				int_to_char[sigma] = uint8_t(c);
+
+				sigma++;
+
+			}
+
+			T_hf.set(j++,char_to_int[uint8_t(c)]);
 
 		}
 
-		T.set(j++,char_to_int[uint8_t(c)]);
+		cout << "done. " << endl << endl;
+
+		cout << "alphabet size is " << sigma  << endl << endl;
+
+		cout << "initializing and sorting text positions vector ... " << flush;
+
+		TP_hf_t TP_hf(&T_hf,min_high_frequency,max_d);
+
+		cout << "done. Number of text positions containing a high-frequency pair: " << TP_hf.size() << endl;
+
+		//for(uint64_t i = 0; i<n; ++i) cout << (uint8_t)int_to_char[T[i]];cout<<endl;
+
+		//next free dictionary symbol = sigma
+		X =  sigma;
+
+		cout << "STEP 1. HIGH FREQUENCY PAIRS" << endl << endl;
+
+		//cout << "sorting text positions by character pairs ... " << flush;
+
+		//TP.sort();
+
+		//cout << "done." << endl;
+
+		cout << "inserting pairs in high-frequency queue ... " << flush;
+
+		hf_q_t HFQ;
+		new_high_frequency_queue(HFQ, TP_hf, T_hf, min_high_frequency);
+
+		cout << "done. Number of distinct high-frequency pairs = " << HFQ.size() << endl;
+
+
+		cout << "Replacing high-frequency pairs ... " << endl;
+
+		while(HFQ.size() > 0){
+
+			substitution_round<hf_q_t>(HFQ, TP_hf, T_hf);
+
+		}
+
+		cout << "done. " << endl;
+
+		cout << "\nCompacting text positions ... " << flush;
+		T_lf.init(T_hf);
+		cout << "done." << endl;
 
 	}
-
-	cout << "done. " << endl << endl;
-
-	cout << "alphabet size is " << sigma  << endl << endl;
-
-	cout << "initializing and sorting text positions vector ... " << flush;
-
-	TP_t TP(&T,min_high_frequency,max_d);
-
-	cout << "done. Number of text positions containing a high-frequency pair: " << TP.size() << endl;
-
-	//for(uint64_t i = 0; i<n; ++i) cout << (uint8_t)int_to_char[T[i]];cout<<endl;
-
-	//next free dictionary symbol = sigma
-	X =  sigma;
-
-	cout << "STEP 1. HIGH FREQUENCY PAIRS" << endl << endl;
-
-	//cout << "sorting text positions by character pairs ... " << flush;
-
-	//TP.sort();
-
-	//cout << "done." << endl;
-
-	cout << "inserting pairs in high-frequency queue ... " << flush;
-
-	hf_q_t HFQ;
-	new_high_frequency_queue(HFQ, TP, T, min_high_frequency);
-
-	cout << "done. Number of distinct high-frequency pairs = " << HFQ.size() << endl;
-
-
-	cout << "Replacing high-frequency pairs ... " << endl;
-
-	while(HFQ.size() > 0){
-
-		substitution_round<hf_q_t>(HFQ, TP, T);
-
-	}
-
-	cout << "done. " << endl;
-
 
 }
 

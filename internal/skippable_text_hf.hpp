@@ -13,7 +13,7 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
  *
- * skippable_text.hpp
+ * skippable_text_hf.hpp
  *
  *  Created on: Jan 18, 2017
  *      Author: nico
@@ -25,17 +25,15 @@
  *
  */
 
-#ifndef INTERNAL_SKIPPABLE_TEXT_HPP_
-#define INTERNAL_SKIPPABLE_TEXT_HPP_
+#ifndef INTERNAL_SKIPPABLE_TEXT_HF_HPP_
+#define INTERNAL_SKIPPABLE_TEXT_HF_HPP_
 
 #include <vector>
-#include <sdsl/int_vector.hpp>
 
 using namespace std;
-using namespace sdsl;
 
 template<typename itype = uint32_t, typename ctype = uint32_t>
-class skippable_text{
+class skippable_text_hf{
 
 public:
 
@@ -47,7 +45,7 @@ public:
 	 * The size of each character is max(8, bitsize(n))
 	 *
 	 */
-	skippable_text(itype n, ctype largest_symbol){
+	skippable_text_hf(itype n, ctype largest_symbol){
 
 		assert(n>0);
 
@@ -519,12 +517,12 @@ private:
 
 	uint8_t width = 0;
 
-	uint64_t eof;
+	uint64_t eof = 0;
 
 };
 
-typedef skippable_text<uint32_t, uint32_t> skippable_text32_t;
-typedef skippable_text<uint64_t, uint64_t> skippable_text64_t;
+typedef skippable_text_hf<uint32_t, uint32_t> skippable_text_hf32_t;
+typedef skippable_text_hf<uint64_t, uint64_t> skippable_text_hf64_t;
 
 
-#endif /* INTERNAL_SKIPPABLE_TEXT_HPP_ */
+#endif /* INTERNAL_SKIPPABLE_TEXT_HF_HPP_ */

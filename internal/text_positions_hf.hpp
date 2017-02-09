@@ -13,7 +13,7 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
  *
- * text_positions.hpp
+ * text_positions_hf.hpp
  *
  *  Created on: Jan 20, 2017
  *      Author: nico
@@ -22,17 +22,15 @@
  *
  */
 
-#ifndef INTERNAL_TEXT_POSITIONS_HPP_
-#define INTERNAL_TEXT_POSITIONS_HPP_
+#ifndef INTERNAL_TEXT_POSITIONS_HF_HPP_
+#define INTERNAL_TEXT_POSITIONS_HF_HPP_
 
-#include <sdsl/int_vector.hpp>
-#include <skippable_text.hpp>
+#include "skippable_text_hf.hpp"
 
 using namespace std;
-using namespace sdsl;
 
 template<typename itype = uint32_t, typename ctype = uint32_t, typename ll_el_t = ll_el32_t>
-class text_positions{
+class text_positions_hf{
 
 public:
 
@@ -51,9 +49,7 @@ public:
 	 * pair sorting.
 	 *
 	 */
-	text_positions(skippable_text<itype,ctype> * T, itype min_freq, itype max_alphabet_size = 0){
-
-		//content = text_pos;
+	text_positions_hf(skippable_text_hf<itype,ctype> * T, itype min_freq, itype max_alphabet_size = 0){
 
 		if(max_alphabet_size>0){
 
@@ -143,27 +139,11 @@ public:
 	}
 
 	/*
-	 * restore text positions without sorting them
-	 */
-	/*void restore_text_positions(){
-
-		assert(content == pairs);
-
-		content = text_pos;
-
-		assert(T->size()>1);
-
-		for(uint64_t i = 0; i<n; ++i) TP[i] = i;
-
-	}*/
-
-	/*
 	 * get i-th text position
 	 */
 	itype operator[](itype i){
 
 		assert(i<size());
-		//assert(content == text_pos);
 
 		return TP[i];
 
@@ -173,8 +153,6 @@ public:
 	 * cluster TP[i,...,j-1] by character pairs. Uses in-place counting-sort
 	 */
 	void sort(itype i, itype j){
-
-		//assert(content == text_pos);
 
 		assert(i<size());
 		assert(j<=size());
@@ -313,8 +291,6 @@ public:
 
 		}
 
-		//cout << "\n**** " << dist_pairs << " / " << (j-i) << endl;
-
 		//restore H
 		for(itype k = i; k<j; ++k){
 
@@ -338,12 +314,12 @@ public:
 	 * sort all array
 	 */
 	void sort(){
+
 		sort(0,size());
+
 	}
 
 	itype size(){
-
-		//assert(content == text_pos);
 
 		return TP.size();
 
@@ -354,7 +330,7 @@ private:
 
 	struct comparator {
 
-		comparator(skippable_text<itype,ctype> * T){
+		comparator(skippable_text_hf<itype,ctype> * T){
 
 			this->T = T;
 
@@ -366,18 +342,12 @@ private:
 
 		}
 
-		skippable_text<itype,ctype> * T;
+		skippable_text_hf<itype,ctype> * T;
 
 	};
 
-	//int content;
-
-	//if content = frequencies, this is the number of pairs stored in the structure
-	//and equals the number of distinct text pairs with frequency at least 2
-	//itype n_pairs = 0;
-
 	//a reference to the text
-	skippable_text<itype,ctype> * T;
+	skippable_text_hf<itype,ctype> * T;
 
 	uint64_t width;
 	uint64_t min_freq;
@@ -394,7 +364,7 @@ private:
 
 };
 
-typedef text_positions<uint32_t, uint32_t, ll_el32_t> text_positions32_t;
-typedef text_positions<uint64_t, uint64_t, ll_el64_t> text_positions64_t;
+typedef text_positions_hf<uint32_t, uint32_t, ll_el32_t> text_positions_hf32_t;
+typedef text_positions_hf<uint64_t, uint64_t, ll_el64_t> text_positions_hf64_t;
 
-#endif /* INTERNAL_TEXT_POSITIONS_HPP_ */
+#endif /* INTERNAL_TEXT_POSITIONS_HF_HPP_ */

@@ -18,7 +18,7 @@ To clone the repository, call
 
 ### Compile
 
-The library has been tested under linux using gcc 5.4.0. You need the SDSL library installed on your system (https://github.com/simongog/sdsl-lite). It is expected that SDSL headers are stored in ~/include/, and SDSL libraries are stored in ~/lib/
+The library has been tested under linux using gcc 5.4.0. 
 
 You can use use cmake to generate the Makefile. Create a build folder in the main Re-Pair folder:
 
