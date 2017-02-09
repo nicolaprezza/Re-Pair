@@ -45,18 +45,12 @@ public:
 	 * The size of each character is max(8, bitsize(n))
 	 *
 	 */
-	skippable_text_hf(itype n, ctype largest_symbol){
+	skippable_text_hf(itype n){
 
 		assert(n>0);
 
 		this->n = n;
 		non_blank_characters = n;
-
-		eof = largest_symbol+1;
-
-		width = 64 - clz(eof);
-
-		assert(width > 0);
 
 		non_blank = vector<uint64_t>(n/64+(n%64!=0),~uint64_t(0));//init all '1'
 
@@ -104,6 +98,8 @@ public:
 		assert(i<n);
 
 		T[i] = c;
+
+		max_symbol = c>max_symbol ? c : max_symbol;
 
 	}
 
@@ -198,9 +194,11 @@ public:
 	 */
 	void replace(itype i, ctype X){
 
-		assert(64 - clz(uint64_t(X)) <= width);
+		assert(X<eof);
 		assert(i<n-1);
 		assert(not is_blank(i));
+
+		max_symbol = X>max_symbol ? X : max_symbol;
 
 		itype i2 = next_non_blank_position(i);
 
@@ -298,6 +296,55 @@ public:
 	 */
 	itype number_of_non_blank_characters(){
 		return non_blank_characters;
+	}
+
+	/*
+	 * remove blank positions, free non-used memory
+	 */
+	void compact(){
+
+		itype j=0;
+
+		for(itype i = 0;i<T.size();++i){
+
+			if(not is_blank(i)){
+
+				T[j++] = T[i];
+
+			}
+
+		}
+
+		assert(j == non_blank_characters);
+
+		T.resize(j);
+		//vector<uint16_t>(T).swap(T);
+		//T.shrink_to_fit();
+
+		n = j;
+
+		non_blank.resize(n/64+(n%64!=0));
+		//non_blank.shrink_to_fit();
+		for(auto & x : non_blank) x = ~uint64_t(0);
+
+		if(n%64 != 0){//set to 0 bits in the right padding
+
+			uint64_t MASK = ~((~uint64_t(0)) >> (n%64));
+			non_blank[non_blank.size()-1] &= MASK;
+
+		}
+
+		skips.resize(n/64+(n%64!=0));
+		//skips.shrink_to_fit();
+		for(auto & x : skips) x = 0;
+
+
+	}
+
+	ctype get_max_symbol(){
+
+		return max_symbol;
+
 	}
 
 private:
@@ -517,7 +564,12 @@ private:
 
 	uint8_t width = 0;
 
-	uint64_t eof = 0;
+	const uint16_t eof = (~uint16_t(0))-1;
+
+	/*
+	 * max symbol contained in the text
+	 */
+	ctype max_symbol = 0;
 
 };
 

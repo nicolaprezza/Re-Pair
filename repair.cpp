@@ -416,6 +416,11 @@ void compute_repair(string in, string out_rp, string out_g){
 	 */
 	double alpha = 0.66;
 
+	/*
+	 * in the low-frequency pair processing phase, insert at most n/B elements in the hash
+	 */
+	uint64_t B = 10;
+
 	itype n;
 	itype sigma = 0; //alphabet size
 
@@ -463,7 +468,6 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	cout << "Max high-frequency dictionary symbol = " << max_d << endl << endl;
 
-
 	//the low-freq text
 	text_lf_t T_lf;
 	TP_lf_t TP_lf;
@@ -472,7 +476,7 @@ void compute_repair(string in, string out_rp, string out_g){
 	{
 
 		//initialize text and text positions
-		text_hf_t T_hf(n,max_d);
+		text_hf_t T_hf(n);
 
 		itype j = 0;
 
@@ -500,7 +504,7 @@ void compute_repair(string in, string out_rp, string out_g){
 
 		cout << "initializing and sorting text positions vector ... " << flush;
 
-		TP_hf_t TP_hf(&T_hf,min_high_frequency,max_d);
+		TP_hf_t TP_hf(&T_hf,min_high_frequency);
 
 		cout << "done. Number of text positions containing a high-frequency pair: " << TP_hf.size() << endl;
 
@@ -524,7 +528,6 @@ void compute_repair(string in, string out_rp, string out_g){
 
 		cout << "done. Number of distinct high-frequency pairs = " << HFQ.size() << endl;
 
-
 		cout << "Replacing high-frequency pairs ... " << endl;
 
 		while(HFQ.size() > 0){
@@ -535,11 +538,18 @@ void compute_repair(string in, string out_rp, string out_g){
 
 		cout << "done. " << endl;
 
-		cout << "\nCompacting text positions ... " << flush;
-		T_lf.init(T_hf);
+		cout << "\nCompacting text positions and TP array... " << flush;
+
+		T_hf.compact(); //remove blank positions
+		TP_hf.resize(); //store here all remaining text positions
+
 		cout << "done." << endl;
 
-	}
+		cout << "Sorting  TP array... " << flush;
+		TP_hf.sort(); //sort text positions by character pairs
+		cout << "done." << endl;
+
+	}//here resources for HF text and TP are freed
 
 }
 

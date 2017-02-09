@@ -26,8 +26,26 @@
 #define INTERNAL_TEXT_POSITIONS_LF_HPP_
 
 #include "skippable_text_lf.hpp"
+#include <unordered_map>
 
 using namespace std;
+
+/*namespace std {
+template <> struct hash<std::pair<uint32_t, uint32_t>> {
+    inline size_t operator()(const pair<uint32_t, uint32_t> &v) const {
+        std::hash<uint32_t> int_hasher;
+        return int_hasher(v.first) ^ int_hasher(v.second);
+    }
+};
+
+namespace std {
+template <> struct hash<std::pair<uint64_t, uint64_t>> {
+    inline size_t operator()(const pair<uint64_t, uint64_t> &v) const {
+        std::hash<uint64_t> int_hasher;
+        return int_hasher(v.first) ^ int_hasher(v.second);
+    }
+};*/
+
 
 template<typename text_t = skippable_text_lf32_t, typename itype = uint32_t, typename ctype = uint32_t, typename ll_el_t = ll_el32_t>
 class text_positions_lf{
@@ -51,9 +69,10 @@ public:
 	 * pair sorting.
 	 *
 	 */
-	void init(text_t * T){
+	void init(text_t * T, itype max_n_pairs){
 
 		this->T = T;
+		this->max_n_pairs = max_n_pairs;
 
 		assert(T->size()>1);
 
@@ -63,6 +82,8 @@ public:
 		TP = vector<itype>(T->size()-1);
 
 		for(itype i=0;i<TP.size();++i) TP[i] = i;
+
+		H = hash_t(max_n_pairs*2);
 
 	}
 
@@ -280,7 +301,7 @@ private:
 	uint64_t width = 0;
 
 	//hash to speed-up pair sorting (to linear time)
-	vector<vector<ipair> > H; //H[a][b] = <begin, end>. end = next position where to store ab
+	std::unordered_map<cpair,ipair> H; //H[a][b] = <begin, end>. end = next position where to store ab
 
 	//the array of text positions
 	//int_vector<> TP;
@@ -288,6 +309,8 @@ private:
 
 	const itype null = ~itype(0);
 	const cpair nullpair = {null,null};
+
+	uint64_t max_n_pairs = 0;//max number of pairs that will be inserted in the queue
 
 };
 

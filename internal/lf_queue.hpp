@@ -104,7 +104,7 @@ public:
 
 	/*
 	 * build queue with max capacity equal to max_size and minimum allowed
-	 * frequency of a pair equal to min_frequency (included). If a pair'sfrequency
+	 * frequency of a pair equal to min_frequency (included). If a pair's frequency
 	 * becomes strictly smaller than min_frequency, then the pair is removed from the queue
 	 */
 	lf_queue(itype max_size, itype max_freq) {

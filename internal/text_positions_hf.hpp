@@ -26,6 +26,7 @@
 #define INTERNAL_TEXT_POSITIONS_HF_HPP_
 
 #include "skippable_text_hf.hpp"
+#include <algorithm>
 
 using namespace std;
 
@@ -49,24 +50,17 @@ public:
 	 * pair sorting.
 	 *
 	 */
-	text_positions_hf(skippable_text_hf<itype,ctype> * T, itype min_freq, itype max_alphabet_size = 0){
+	text_positions_hf(skippable_text_hf<itype,ctype> * T, itype min_freq){
 
-		if(max_alphabet_size>0){
+		//hash will be of size maxd*maxd words
+		uint64_t maxd = std::max(uint64_t(std::pow(  T->size(), 0.4  )),uint64_t(256));
 
-			H = vector<vector<ipair> >(max_alphabet_size,vector<ipair>(max_alphabet_size,{0,0}));
-			//pair_visited = vector<vector<bool> >(max_alphabet_size,vector<bool>(max_alphabet_size,false));
+		//hash to accelerate sorting of pairs
+		H = vector<vector<ipair> >(maxd,vector<ipair>(maxd,{0,0}));
 
-		}
-
-		this->min_freq = min_freq;
 		this->T = T;
 
 		assert(T->size()>1);
-
-		//TP's size: text size - 1
-		//n = T->size()-1;
-
-		width = 64 - __builtin_clzll(uint64_t(T->size()));
 
 		//frequency of every possible ASCII pair
 		auto F = vector<vector<itype> >(256,vector<itype>(256,0));
@@ -139,6 +133,24 @@ public:
 	}
 
 	/*
+	 * resize TP's size to the text size n
+	 *
+	 * replace content with text positions 0,...,n-1
+	 *
+	 * WARNING: this function does not sort
+	 *
+	 */
+	void resize(){
+
+		TP.resize(T->size());
+		//TP.shrink_to_fit();
+
+		itype i=0;
+		for(auto & x : TP) x = i++;
+
+	}
+
+	/*
 	 * get i-th text position
 	 */
 	itype operator[](itype i){
@@ -149,10 +161,27 @@ public:
 
 	}
 
+	void nlogn_sort(itype i, itype j){
+
+		std::sort(TP.begin()+i, TP.begin()+j,comparator(T));
+
+	}
+
 	/*
 	 * cluster TP[i,...,j-1] by character pairs. Uses in-place counting-sort
 	 */
 	void sort(itype i, itype j){
+
+		/*
+		 * if the largest symbol in the text is too big for the hash,
+		 * just apply slow comparison-sort
+		 */
+		if(T->get_max_symbol() >= H.size()){
+
+			nlogn_sort(i,j);
+			return;
+
+		}
 
 		assert(i<size());
 		assert(j<=size());
@@ -319,12 +348,15 @@ public:
 
 	}
 
+	void nlogn_sort(){
+		nlogn_sort(0,size());
+	}
+
 	itype size(){
 
 		return TP.size();
 
 	}
-
 
 private:
 
@@ -348,9 +380,6 @@ private:
 
 	//a reference to the text
 	skippable_text_hf<itype,ctype> * T;
-
-	uint64_t width;
-	uint64_t min_freq;
 
 	//hash to speed-up pair sorting (to linear time)
 	vector<vector<ipair> > H; //H[a][b] = <begin, end>. end = next position where to store ab
