@@ -207,22 +207,24 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
 
 		}
 
-		//if the pair is not AB and it is a high-frequency pair, insert it in queue
-		if(XY != AB and k >= Q.minimum_frequency()){
+		freq_AB = XY == AB ? k : freq_AB;
 
-			assert(XY != T.blank_pair());
-			assert(not Q.contains(XY));
+		if(k >= Q.minimum_frequency()){
 
-			Q.insert({XY,p,k,k}); //minimum is automatically updated here if k is smaller than the new minimum
+			//if the pair is not AB and it is a high-frequency pair, insert it in queue
+			if(XY != AB){
 
-		}else if(XY == AB){ //the pair is AB and is already in the queue: update its frequency
+				assert(XY != T.blank_pair());
+				assert(not Q.contains(XY));
 
-			freq_AB = k;
+				Q.insert({XY,p,k,k});
 
-			assert(Q.contains(AB));
+			}else if(XY == AB){ //the pair is AB and is already in the queue: update its frequency
 
-			//update only if frequency is at least minimum frequency (otherwise we will remove the pair afterwards)
-			if(k >= Q.minimum_frequency()) Q.update({AB,p,k,k});
+				assert(Q.contains(AB));
+				Q.update({AB,p,k,k});
+
+			}
 
 		}
 
@@ -299,6 +301,12 @@ void substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 	itype L_AB = q_el.L_ab;
 
 	cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
+
+	if(F_AB > TP.size()){
+
+		cout << "error: MAX = " << F_AB << endl;exit(0);
+
+	}
 
 	//output new rule
 	cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
@@ -661,7 +669,7 @@ void compute_repair(string in, string out_rp, string out_g){
 
 
 
-	/*cout << "Replacing low-frequency pairs ... " << flush;
+	cout << "Replacing low-frequency pairs ... " << flush;
 
 	while(LFQ.size() > 0){
 
@@ -669,7 +677,7 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	}
 
-	cout << "done. " << endl;*/
+	cout << "done. " << endl;
 
 }
 

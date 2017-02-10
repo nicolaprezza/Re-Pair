@@ -173,6 +173,8 @@ public:
 	 */
 	void sort(itype i, itype j){
 
+		nlogn_sort(i,j);return;
+
 		/*
 		 * if the largest symbol in the text is too big for the hash,
 		 * just apply slow comparison-sort

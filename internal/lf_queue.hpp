@@ -51,7 +51,6 @@
 using namespace std;
 
 
-
 /*
  * template on linked list type and integer type
  */
@@ -91,7 +90,8 @@ public:
 		assert(max_freq>0);
 
 		this->max_freq = max_freq;
-		this->max_size = max_size;
+		//this->max_size = max_size;
+		this->max_size = ~(itype(0)); //for now, unlimited max size
 
 		F = vector<ll_type>(max_freq+1);
 
@@ -128,46 +128,46 @@ public:
 		auto e = F[freq][offset];
 
 		assert(e.F_ab == freq);
+		assert(e.F_ab <= max_freq);
 
 		return {e.P_ab, e.L_ab, e.F_ab};
 
 	}
 
-	/*cpair min(){
-
-		assert(check_hash_consistency());
-
-		assert(max_size>0);
-		assert(MIN<F.size());
-		assert(F[MIN].size()>0);
-
-		auto ab = F[MIN].head();
-
-		assert(H[ab].second < F[H[ab].first].capacity());
-		assert(contains(ab));
-		assert(check_hash_consistency());
-
-		return ab;
-
-	}*/
-
 	cpair max(){
+
+		assert(n>0);
+
+		if(n==0){
+
+			cout << "error calling MAX with no pairs" << endl;exit(0);
+
+		}
 
 		assert(check_hash_consistency());
 
 		assert(max_size>0);
 		assert(MAX<F.size());
+		assert(MAX>1);
 
 		while(MAX > 1 && F[MAX].size() == 0){MAX--;}
+
+		assert(MAX>1);
+
+		if(MAX<=1){
+
+			cout << "error max: MAX = " << MAX << endl;exit(0);
+
+		}
 
 		auto ab = F[MAX].head();
 
 		assert(H[ab].second < F[H[ab].first].capacity());
 		assert(contains(ab));
-
 		assert(F[H[ab].first][H[ab].second].ab == ab);
+		assert(H[ab].first == MAX);
+		assert(F[H[ab].first][H[ab].second].F_ab == MAX);
 		assert(not F[H[ab].first][H[ab].second].is_null());
-
 		assert(check_hash_consistency());
 
 		return ab;
@@ -182,23 +182,18 @@ public:
 		assert(max_size>0);
 		assert(H[ab].second < F[H[ab].first].capacity());
 
-		assert(MAX < F.size());
-
 		auto coord = H[ab];
-
 		auto freq = coord.first;
 		auto offset = coord.second;
 
 		assert(freq < F.size());
+		assert(freq <= max_freq);
 		assert(offset < F[freq].capacity());
 		assert(not F[freq][offset].is_null());
 		assert(F[freq][offset].ab == ab);
 
-		assert(check_hash_consistency());
-
-		F[freq].remove(offset);
-		//remove pair from hash
-		H.erase(ab);
+		F[freq].remove(offset);//remove pair from linked list
+		H.erase(ab);//remove pair from hash
 
 		assert(check_hash_consistency());
 
@@ -264,10 +259,23 @@ public:
 
 		assert(ab == e.ab);
 		assert(e.F_ab == freq);
+		assert(e.F_ab >= 2);
+		assert(freq <= max_freq);
+
+		if(e.F_ab < 2){
+
+			cout << "error1: F_ab < 2 " << endl;exit(0);
+
+		}
+
+		if(e.F_ab > max_freq){
+
+			cout << "error1.1: F_ab > max_freq " << endl;exit(0);
+
+		}
 
 		//remove pair ab from the queue as its frequency changed
 		remove(ab);
-
 		assert(not contains(ab));
 
 		//decrease frequency
@@ -276,9 +284,7 @@ public:
 		assert(check_hash_consistency());
 
 		//if ab's frequency becomes equal to 1, do not re-insert ab in the queue
-		if(e.F_ab == 1) return;
-
-		assert(check_hash_consistency());
+		if(e.F_ab < 2) return;
 
 		//now insert the element in its list
 		auto off = F[e.F_ab].insert(e);
@@ -288,6 +294,8 @@ public:
 
 		//update hash with new coordinates of the pair ab
 		H.insert({ab,{e.F_ab,off}});
+
+		assert(contains(ab));
 
 		//increase size counter ( it was decreased inside remove() )
 		n++;
@@ -311,11 +319,23 @@ public:
 		itype f = el.F_ab;
 		cpair ab = el.ab;
 
+		assert(f>=2);
+
+		if(f < 2){
+
+			cout << "error2: F_ab < 2. F_ab = " << f << endl;exit(0);
+
+		}
+
+		if(f > max_freq){
+
+			cout << "error2.1: F_ab > max_freq. F_ab = " << f << endl;exit(0);
+
+		}
+
 		assert(f < F.size());
 		assert(not contains(ab));
 		assert(max_size>0);
-
-		assert(check_hash_consistency());
 
 		//insert ab in its list
 		auto off = F[f].insert(el);
@@ -342,7 +362,10 @@ public:
 	}
 
 	/*
-	 * el must be already in the queue. update values for el
+	 * el must be already in the queue. update L_ab value for el
+	 *
+	 * note that el.F_ab must be the same of the frequency stored in the queue
+	 *
 	 */
 	void update(el_type el){
 
@@ -367,6 +390,20 @@ public:
 		assert(freq < F.size());
 		assert(offset < F[freq].capacity());
 		assert(not F[freq][offset].is_null());
+
+		assert(F[freq][offset].L_ab >= el.L_ab);
+
+		if(F[freq][offset].F_ab < 2){
+
+			cout << "error3: F_ab < 2 " << endl;exit(0);
+
+		}
+
+		if(F[freq][offset].F_ab > max_freq){
+
+			cout << "error3.1: F_ab > max_freq. F_ab = " << F[freq][offset].F_ab << endl;exit(0);
+
+		}
 
 		//copy element
 		F[freq][offset].L_ab = el.L_ab;
@@ -409,7 +446,7 @@ private:
 
 	bool check_hash_consistency(){
 
-		//decomment this line to enable the check
+		//comment this line to enable the check
 		//be aware that this check introduces a lot of overhead,
 		//so run it only on small datasets
 		return true;
@@ -443,7 +480,8 @@ private:
 	vector<ll_type> F;
 	hash_t H;
 
-	const static itype null = ~itype(0);
+	const itype null = ~itype(0);
+	const cpair nullpair = {null,null};
 
 };
 

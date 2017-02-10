@@ -100,6 +100,12 @@ public:
 		assert(size()>0);
 		assert(first_el != null);
 
+		if(size()==0){
+
+			cout << "error in ll_vec 105: size() == 0" << endl;exit(0);
+
+		}
+
 		t el = V[first_el];
 
 		assert(not el.is_null());
