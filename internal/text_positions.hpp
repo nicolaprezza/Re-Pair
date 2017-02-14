@@ -13,7 +13,7 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
  *
- * text_positions_lf.hpp
+ * text_positions.hpp
  *
  *  Created on: Jan 20, 2017
  *      Author: nico
@@ -22,33 +22,17 @@
  *
  */
 
-#ifndef INTERNAL_TEXT_POSITIONS_LF_HPP_
-#define INTERNAL_TEXT_POSITIONS_LF_HPP_
+#ifndef INTERNAL_TEXT_POSITIONS_HPP_
+#define INTERNAL_TEXT_POSITIONS_HPP_
 
-#include "skippable_text_lf.hpp"
+#include <algorithm>
+#include "skippable_text.hpp"
 #include <unordered_map>
 
 using namespace std;
 
-/*namespace std {
-template <> struct hash<std::pair<uint32_t, uint32_t>> {
-    inline size_t operator()(const pair<uint32_t, uint32_t> &v) const {
-        std::hash<uint32_t> int_hasher;
-        return int_hasher(v.first) ^ int_hasher(v.second);
-    }
-};
-
-namespace std {
-template <> struct hash<std::pair<uint64_t, uint64_t>> {
-    inline size_t operator()(const pair<uint64_t, uint64_t> &v) const {
-        std::hash<uint64_t> int_hasher;
-        return int_hasher(v.first) ^ int_hasher(v.second);
-    }
-};*/
-
-
-template<typename text_t = skippable_text_lf32_t, typename itype = uint32_t, typename ctype = uint32_t, typename ll_el_t = ll_el32_t>
-class text_positions_lf{
+template<typename itype = uint32_t, typename ctype = uint32_t, typename ll_el_t = ll_el32_t>
+class text_positions{
 
 public:
 
@@ -56,8 +40,6 @@ public:
 	using ipair = pair<itype,itype>;
 	using cpair = pair<ctype,ctype>;
 	using hash_t = std::unordered_map<cpair, vector<itype> >;
-
-	text_positions_lf(){}
 
 	/*
 	 * build new array of text positions with only text positions of pairs with
@@ -69,21 +51,111 @@ public:
 	 * pair sorting.
 	 *
 	 */
-	void init(text_t * T, itype max_n_pairs){
+	text_positions(skippable_text<itype,ctype> * T, itype min_freq){
+
+		//hash will be of size maxd*maxd words
+		uint64_t maxd = std::max(uint64_t(std::pow(  T->size(), 0.4  )),uint64_t(T->get_max_symbol()+1));
+
+		//hash to accelerate sorting of pairs
+		H = vector<vector<ipair> >(maxd,vector<ipair>(maxd,{0,0}));
 
 		this->T = T;
-		this->max_n_pairs = max_n_pairs;
 
 		assert(T->size()>1);
 
+		//frequency of every possible ASCII pair
+		auto F = vector<vector<itype> >(256,vector<itype>(256,0));
+
+		//count frequencies
+		for(itype i = 0;i<T->size()-1;++i){
+
+			cpair p = T->pair_starting_at(i);
+			ctype a = p.first;
+			ctype b = p.second;
+
+			assert(p != T->blank_pair());
+
+			assert(a<256);
+			assert(b<256);
+
+			F[a][b]++;
+
+		}
+
 		const itype null = ~itype(0);
 
-		//init Text positions
-		TP = vector<itype>(T->size()-1);
+		itype hf_pairs = 0;
 
-		for(itype i=0;i<TP.size();++i) TP[i] = i;
+		for(ctype a = 0;a<256;++a){
 
-		H = hash_t(max_n_pairs*2);
+			for(ctype b = 0;b<256;++b){
+
+				itype t = F[a][b];
+
+				if(F[a][b] < min_freq){
+
+					F[a][b] = null;
+
+				}else{
+
+					F[a][b] = hf_pairs;
+					hf_pairs += t;
+
+				}
+
+			}
+
+		}
+
+		//TP = int_vector<>(hf_pairs,0,width);
+		TP = vector<itype>(hf_pairs,0);
+
+		//fill TP: cluster high-freq pairs
+		for(itype i = 0;i<T->size()-1;++i){
+
+			cpair p = T->pair_starting_at(i);
+			ctype a = p.first;
+			ctype b = p.second;
+
+			assert(a<256);
+			assert(b<256);
+
+			if(F[a][b] != null){//if ab is a high-freq pair
+
+				assert(F[a][b] < TP.size());
+
+				//store i at position F[a][b], increment F[a][b]
+				TP[ F[a][b]++ ] = i;
+
+			}
+
+		}
+
+	}
+
+	/*
+	 * fill TP with non-blank text positions
+	 *
+	 * WARNING: this function does not sort text positions
+	 *
+	 */
+	void fill_with_text_positions(){
+
+		assert(T->number_of_non_blank_characters() > 1);
+
+		//TP.resize(T->number_of_non_blank_characters()-1);
+		TP = vector<itype>(T->number_of_non_blank_characters()-1);
+
+		itype j=0;
+		for(itype i = 0;i<T->size();++i){
+
+			if(not T->is_blank(i) and j<TP.size()){
+
+				TP[j++] = i;
+
+			}
+
+		}
 
 	}
 
@@ -98,10 +170,30 @@ public:
 
 	}
 
+	void nlogn_sort(itype i, itype j){
+
+		std::sort(TP.begin()+i, TP.begin()+j,comparator(T));
+
+	}
+
 	/*
-	 * cluster TP[i,...,j-1] by character pairs. Uses in-place counting-sort
+	 * cluster TP[i,...,j-1] by character pairs
 	 */
-	void sort(itype i, itype j){
+	void cluster(itype i, itype j){
+
+		//nlogn_sort(i,j); assert(is_clustered(i,j)); return;
+
+		/*
+		 * if the largest symbol in the text is too big for the hash,
+		 * just apply slow comparison-sort
+		 */
+		if(T->get_max_symbol() >= H.size()){
+
+			nlogn_sort(i,j);
+			assert(is_clustered(i,j));
+			return;
+
+		}
 
 		assert(i<size());
 		assert(j<=size());
@@ -257,15 +349,21 @@ public:
 
 		}
 
+		assert(is_clustered(i,j));
+
 	}
 
 	/*
-	 * sort all array
+	 * cluster all array
 	 */
-	void sort(){
+	void cluster(){
 
-		sort(0,size());
+		cluster(0,size());
 
+	}
+
+	void nlogn_sort(){
+		nlogn_sort(0,size());
 	}
 
 	itype size(){
@@ -274,12 +372,68 @@ public:
 
 	}
 
+	/*
+	 * check that TP[i,...,j-1] is clustered by character pairs
+	 */
+	bool is_clustered(itype i, itype j){
+
+		if(j<=i) return true;
+
+		itype m = j-i;
+
+		auto V = unordered_map<cpair,bool>(2*m);
+
+		for(itype k=i+1;k<j;++k){
+
+			if(T->pair_starting_at(TP[k]) != T->pair_starting_at(TP[k-1])){
+
+				auto p = T->pair_starting_at(TP[k-1]);
+
+				//new pair: check that previous pair is not in V
+				if(V.count(p) == 0){
+
+					V.insert({p,true});
+
+				}else{
+
+					//we have already seen this pair: array is not clustered
+					return false;
+
+				}
+
+			}
+
+		}
+
+		auto p = T->pair_starting_at(TP[j-1]);
+
+		//new pair: check that last pair is not in V
+		if(V.count(p) != 0) return false;
+
+		return true;
+
+	}
+
+	/*
+	 * true iff TP[i,...,j-1] contains only pair ab. Return true if range [i,j-1] is empty
+	 */
+	bool contains_only(itype i, itype j, cpair ab){
+
+		for(itype k=i;k<j;++k){
+
+			if(T->pair_starting_at(TP[k]) != ab) return false;
+
+		}
+
+		return true;
+
+	}
 
 private:
 
 	struct comparator {
 
-		comparator(skippable_text_hf<itype,ctype> * T){
+		comparator(skippable_text<itype,ctype> * T){
 
 			this->T = T;
 
@@ -291,17 +445,15 @@ private:
 
 		}
 
-		text_t * T;
+		skippable_text<itype,ctype> * T;
 
 	};
 
 	//a reference to the text
-	text_t * T = 0;
-
-	uint64_t width = 0;
+	skippable_text<itype,ctype> * T;
 
 	//hash to speed-up pair sorting (to linear time)
-	std::unordered_map<cpair,ipair> H; //H[a][b] = <begin, end>. end = next position where to store ab
+	vector<vector<ipair> > H; //H[a][b] = <begin, end>. end = next position where to store ab
 
 	//the array of text positions
 	//int_vector<> TP;
@@ -310,11 +462,9 @@ private:
 	const itype null = ~itype(0);
 	const cpair nullpair = {null,null};
 
-	uint64_t max_n_pairs = 0;//max number of pairs that will be inserted in the queue
-
 };
 
-typedef text_positions_lf<skippable_text_lf32_t, uint32_t, uint32_t, ll_el32_t> text_positions_lf32_t;
-typedef text_positions_lf<skippable_text_lf64_t, uint64_t, uint64_t, ll_el64_t> text_positions_lf64_t;
+typedef text_positions<uint32_t, uint32_t, ll_el32_t> text_positions32_t;
+typedef text_positions<uint64_t, uint64_t, ll_el64_t> text_positions64_t;
 
-#endif /* INTERNAL_TEXT_POSITIONS_LF_HPP_ */
+#endif /* INTERNAL_TEXT_POSITIONS_HPP_ */

@@ -98,6 +98,7 @@ public:
 		MAX = max_freq;
 
 		H = hash_t(max_size*2);
+		H.max_load_factor(0.6);
 
 	}
 
@@ -134,15 +135,12 @@ public:
 
 	}
 
+	/*
+	 * return pair with highest frequency. If queue is empty, return null pair
+	 */
 	cpair max(){
 
-		assert(n>0);
-
-		if(n==0){
-
-			cout << "error calling MAX with no pairs" << endl;exit(0);
-
-		}
+		if(n==0) return nullpair;
 
 		assert(check_hash_consistency());
 
@@ -153,12 +151,6 @@ public:
 		while(MAX > 1 && F[MAX].size() == 0){MAX--;}
 
 		assert(MAX>1);
-
-		if(MAX<=1){
-
-			cout << "error max: MAX = " << MAX << endl;exit(0);
-
-		}
 
 		auto ab = F[MAX].head();
 
@@ -262,18 +254,6 @@ public:
 		assert(e.F_ab >= 2);
 		assert(freq <= max_freq);
 
-		if(e.F_ab < 2){
-
-			cout << "error1: F_ab < 2 " << endl;exit(0);
-
-		}
-
-		if(e.F_ab > max_freq){
-
-			cout << "error1.1: F_ab > max_freq " << endl;exit(0);
-
-		}
-
 		//remove pair ab from the queue as its frequency changed
 		remove(ab);
 		assert(not contains(ab));
@@ -320,19 +300,6 @@ public:
 		cpair ab = el.ab;
 
 		assert(f>=2);
-
-		if(f < 2){
-
-			cout << "error2: F_ab < 2. F_ab = " << f << endl;exit(0);
-
-		}
-
-		if(f > max_freq){
-
-			cout << "error2.1: F_ab > max_freq. F_ab = " << f << endl;exit(0);
-
-		}
-
 		assert(f < F.size());
 		assert(not contains(ab));
 		assert(max_size>0);
@@ -390,22 +357,10 @@ public:
 		assert(freq < F.size());
 		assert(offset < F[freq].capacity());
 		assert(not F[freq][offset].is_null());
-
 		assert(F[freq][offset].L_ab >= el.L_ab);
 
-		if(F[freq][offset].F_ab < 2){
-
-			cout << "error3: F_ab < 2 " << endl;exit(0);
-
-		}
-
-		if(F[freq][offset].F_ab > max_freq){
-
-			cout << "error3.1: F_ab > max_freq. F_ab = " << F[freq][offset].F_ab << endl;exit(0);
-
-		}
-
 		//copy element
+		F[freq][offset].P_ab = el.P_ab;
 		F[freq][offset].L_ab = el.L_ab;
 
 		assert(contains(max()));

@@ -106,38 +106,6 @@ public:
 	}
 
 	/*
-	 * return pair with minimum frequency
-	 */
-	cpair min(){
-
-		if(n==0) return nullpair;
-
-		itype min_F = null;
-		cpair min_pair = nullpair;
-
-		for(cpair p : pairs_in_hash){
-
-			if(contains(p)){
-
-				auto f = H[p].F_ab;
-
-				if(f < min_F){
-
-					min_F = f;
-					min_pair = p;
-
-				}
-
-			}
-
-		}
-
-		assert(min_pair != nullpair);
-		return min_pair;
-
-	}
-
-	/*
 	 * return pair with maximum frequency
 	 */
 	cpair max(){
@@ -228,9 +196,7 @@ public:
 		n++;
 
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
-		assert(min() != nullpair);
 		assert(max() != nullpair);
-		assert(contains(min()));
 		assert(contains(max()));
 		assert(H[ab].P_ab == el.P_ab);
 		assert(H[ab].L_ab == el.L_ab);
@@ -254,9 +220,7 @@ public:
 		H[ab].F_ab = el.F_ab;
 
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
-		assert(min() != nullpair);
 		assert(max() != nullpair);
-		assert(contains(min()));
 		assert(contains(max()));
 
 	}

@@ -35,11 +35,8 @@
 #include <cmath>
 
 #include "internal/hf_queue.hpp"
-#include "internal/skippable_text_hf.hpp"
-#include "internal/text_positions_hf.hpp"
-#include "internal/text_positions_lf.hpp"
-
-#include "internal/skippable_text_lf.hpp"
+#include "internal/skippable_text.hpp"
+#include "internal/text_positions.hpp"
 
 
 using namespace std;
@@ -59,10 +56,9 @@ void help(){
 }
 
 //high/low frequency text type
-using text_hf_t = skippable_text_hf32_t;
-using text_lf_t = skippable_text_lf32_t;
+using text_hf_t = skippable_text32_t;
 
-using TP_t = text_positions_hf32_t;
+using TP_t = text_positions32_t;
 
 using hf_q_t = hf_queue32_t;
 using lf_q_t = lf_queue32_t;
@@ -186,7 +182,8 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
 
 	assert(P_AB+L_AB <= TP.size());
 	//sort sub-array corresponding to AB
-	TP.sort(P_AB,P_AB+L_AB);
+	TP.cluster(P_AB,P_AB+L_AB);
+	assert(TP.is_clustered(P_AB,P_AB+L_AB));
 
 	//scan TP[P_AB,...,P_AB+L_AB-1] and detect new pairs
 	itype j = P_AB;//current position in TP
@@ -195,13 +192,12 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
 		itype p = j; //starting position of current pair in TP
 		itype k = 1; //current pair frequency
 
-		cpair XY = T.blank_pair();
+		cpair XY = T.pair_starting_at(TP[j]);
 
 		while(	j<(P_AB+L_AB)-1 &&
-				T.pair_starting_at(TP[j]) != T.blank_pair() &&
-				T.pair_starting_at(TP[j]) == T.pair_starting_at(TP[j+1]) ){
+				XY != T.blank_pair() &&
+				XY == T.pair_starting_at(TP[j+1]) ){
 
-			XY = T.pair_starting_at(TP[j]);
 			j++;
 			k++;
 
@@ -215,14 +211,19 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
 			if(XY != AB){
 
 				assert(XY != T.blank_pair());
+
 				assert(not Q.contains(XY));
 
 				Q.insert({XY,p,k,k});
+
+				assert(TP.contains_only(p,p+k,XY));
 
 			}else if(XY == AB){ //the pair is AB and is already in the queue: update its frequency
 
 				assert(Q.contains(AB));
 				Q.update({AB,p,k,k});
+
+				assert(TP.contains_only(p,p+k,AB));
 
 			}
 
@@ -301,12 +302,6 @@ void substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 	itype L_AB = q_el.L_ab;
 
 	cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
-
-	if(F_AB > TP.size()){
-
-		cout << "error: MAX = " << F_AB << endl;exit(0);
-
-	}
 
 	//output new rule
 	cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
@@ -406,6 +401,7 @@ void substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 	//advance next free dictionary symbol
 	X++;
 
+	//TODO
 	cout << " current text size = " << T.number_of_non_blank_characters() << endl << endl;
 
 }
@@ -538,13 +534,13 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	cout << "Compacting text positions and TP array ... " << flush;
 
-	T.compact(); //remove blank positions
-	TP.resize(); //store here all remaining text positions
+	//T.compact(); //remove blank positions
+	TP.fill_with_text_positions(); //store here all remaining text positions
 
 	cout << "done." << endl;
 
 	cout << "Sorting  TP array ... " << flush;
-	TP.sort(); //sort text positions by character pairs
+	TP.cluster(); //cluster text positions by character pairs
 	cout << "done." << endl;
 
 

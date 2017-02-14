@@ -13,7 +13,7 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
  *
- * skippable_text_lf.hpp
+ * skippable_text.hpp
  *
  *  Created on: Jan 18, 2017
  *      Author: nico
@@ -25,36 +25,32 @@
  *
  */
 
-#ifndef INTERNAL_SKIPPABLE_TEXT_LF_HPP_
-#define INTERNAL_SKIPPABLE_TEXT_LF_HPP_
+#ifndef INTERNAL_SKIPPABLE_TEXT_HPP_
+#define INTERNAL_SKIPPABLE_TEXT_HPP_
 
 #include <vector>
 
 using namespace std;
 
-template<typename hf_text_t = skippable_text_hf32_t,typename itype = uint32_t, typename ctype = uint32_t>
-class skippable_text_lf{
+template<typename itype = uint32_t, typename ctype = uint32_t>
+class skippable_text{
 
 public:
 
 	using char_type = ctype;
 	using cpair = pair<ctype,ctype>;
 
-	skippable_text_lf(){}
-
 	/*
 	 * initialize new empty text (filled with charcter 0).
 	 * The size of each character is max(8, bitsize(n))
 	 *
 	 */
-	void init(hf_text_t & T_hf){
+	skippable_text(itype n){
 
-		this->n = T_hf.number_of_non_blank_characters();
+		assert(n>0);
+
+		this->n = n;
 		non_blank_characters = n;
-
-		eof = BLANK-1;
-
-		width = sizeof(itype)*8;
 
 		non_blank = vector<uint64_t>(n/64+(n%64!=0),~uint64_t(0));//init all '1'
 
@@ -69,15 +65,7 @@ public:
 		skips = vector<uint64_t>(n/64+(n%64!=0),0);
 
 		//T = int_vector<>(n, 0, width);
-		T = vector<ctype>(n);
-
-		//copy ocntent of T_hf (exclufing blank
-		itype j = 0;
-		for(itype i=0;i<T_hf.size();++i){
-
-			if(not T_hf.is_blank(i)) T[j++] = T_hf[i];
-
-		}
+		T = vector<uint16_t>(n, 0); width = 16;
 
 	}
 
@@ -91,7 +79,7 @@ public:
 
 		assert(i<n);
 
-		return is_blank(i) ? BLANK : T[i];
+		return at(i);
 
 	}
 
@@ -102,15 +90,23 @@ public:
 	}
 
 	/*
-	 * set i-th position to character c != BLANK
+	 * set i-th position to character c != BLANK.
+	 * c must be < 2^16
+	 *
+	 * this function should be called only after building the object, to fill
+	 * it with characters. Calling the funciton after replace() operations could
+	 * break internal consistency (assertion fails if this happens)
 	 */
 	void set(itype i, ctype c){
 
 		assert(c != BLANK);
-		assert(c != eof);
 		assert(i<n);
+		assert(c <= ~uint16_t(0));
+		assert(i==n-1 || not is_blank(i+1));
 
 		T[i] = c;
+
+		max_symbol = c>max_symbol ? c : max_symbol;
 
 	}
 
@@ -126,16 +122,11 @@ public:
 
 		assert(i<T.size());
 
-		cpair result = (i == n-1 or is_blank(i)) ? blank_pair() :
-						(T[i+1] == eof ? blank_pair() : cpair(T[i],T[i+1]));
+		itype i_1 = is_blank(i) ? null : next_non_blank_position(i);
 
-		//check that we get the same results by jumping or reading next character
-		assert(result == pair_starting_at_1(i));
-
-		return result;
+		return i_1 == null ? blank_pair() : cpair {at(i),at(i_1)};
 
 	}
-
 
 
 	/*
@@ -167,27 +158,11 @@ public:
 	 */
 	cpair pair_ending_at(itype i){
 
-		return pair_ending_at_1(i);
-
 		assert(i<T.size());
 
-		cpair result;
+		itype i_1 = is_blank(i) ? null : prev_non_blank_position(i);
 
-		if(i<2 || (is_blank(i-1) && (not is_blank(i-2)))){
-
-			result = pair_ending_at_1(i);
-
-		}else{
-
-			//i >= 2 and (not_blank(i-1) OR blank(i-2))
-			result = is_blank(i) ? blank_pair() : cpair(T[i-1],T[i]);
-
-		}
-
-		//check that we get the same results by jumping or reading next character
-		assert(result == pair_ending_at_1(i));
-
-		return result;
+		return i_1 == null ? blank_pair() : cpair {at(i_1),at(i)};
 
 	}
 
@@ -205,16 +180,15 @@ public:
 	 */
 	void replace(itype i, ctype X){
 
-		assert(64 - clz(uint64_t(X)) <= width);
 		assert(i<n-1);
 		assert(not is_blank(i));
+
+		max_symbol = X>max_symbol ? X : max_symbol;
 
 		itype i2 = next_non_blank_position(i);
 
 		//there is a pair starting from position i
 		assert(i2 != null);
-
-		assert(T[i+1] == T[i2]);
 
 		itype i3 = next_non_blank_position(i2);
 
@@ -226,6 +200,7 @@ public:
 		uint64_t MASK = ~(uint64_t(1) << (63-(i2%64)));//11111110111...1, with a 0 at position i2%64
 		non_blank[b2] &= MASK;
 
+		assert(is_blank(i+1));
 		assert(non_blank_characters>0);
 		non_blank_characters--;
 
@@ -263,31 +238,20 @@ public:
 
 		}
 
-		//replace T[i] with X
-		T[i] = X;
-
+		/*
+		 * write X. Internally, X is stored in T[i]T[i+1] (32 bits): we can do this
+		 * because position i+1 must be blank
+		 */
 		assert(is_blank(i+1));
 
-		//store in T[i+1] the next character: this allows avoiding
-		//jumping inside function pair_starting_at
-		T[i+1] = i3 == null ? eof : T[i3];
+		uint32_t right = uint32_t(X) & ((uint32_t(1)<<16)-1);
+		uint32_t left = uint32_t(X) >> 16;
 
-		//fix also previous non-blank position
-		itype i0 = prev_non_blank_position(i);
-		if(i0 != null){
+		assert(right <= ~uint16_t(0));
+		assert(left <= ~uint16_t(0));
 
-			assert(i0+1<n);
-			T[i0+1] = X;
-
-		}
-
-		if(i3 != null && i3>1 && is_blank(i3-2)){
-
-			assert(i3>0);
-			assert(is_blank(i3-1));
-			T[i3-1] = X;
-
-		}
+		T[i] = left;
+		T[i+1] = right;
 
 	}
 
@@ -307,6 +271,12 @@ public:
 		return non_blank_characters;
 	}
 
+	ctype get_max_symbol(){
+
+		return max_symbol;
+
+	}
+
 private:
 
 	uint64_t clz(uint64_t x){
@@ -318,25 +288,6 @@ private:
 	uint64_t ctz(uint64_t x){
 
 		return x == 0 ? 64 : __builtin_ctzll(x);
-
-	}
-
-	cpair pair_starting_at_1(itype i){
-
-		assert(i<T.size());
-
-		return((is_blank(i) ? null : next_non_blank_position(i)) == null ?
-				blank_pair() : cpair {T[i],T[(is_blank(i) ? null : next_non_blank_position(i))]});
-
-	}
-
-	cpair pair_ending_at_1(itype i){
-
-		assert(i<T.size());
-
-		itype i_1 = is_blank(i) ? null : prev_non_blank_position(i);
-
-		return i_1 == null ? blank_pair() : cpair {T[i_1],T[i]};
 
 	}
 
@@ -502,6 +453,23 @@ private:
 
 	}
 
+	/*
+	 * get integer at position i. Here we use a trick to store 32-bit ints in a 16-bit array:
+	 *
+	 * if non_blank[i] = 0, then position i contains a BLANK
+	 * if non_blank[i] = 1, two cases:
+	 * 		if non_blank[i+1] = 1 or i is last T position, then the (16-bit) result is stored in T[i]
+	 * 		if non_blank[i+1] = 0, then the (32-bit) result is stored in T[i]T[i+1]
+	 *
+	 */
+	itype at(itype i){
+
+		if(i==T.size()-1) return is_blank(i) ? BLANK : T[i];
+
+		return 	is_blank(i) ? BLANK : (is_blank(i+1) ? (uint32_t(T[i])<<16) | uint32_t(T[i+1]) : T[i]) ;
+
+
+	}
 
 	const ctype BLANK = ~ctype(0);
 	const ctype null = ~itype(0);
@@ -509,7 +477,7 @@ private:
 	//this is the text
 
 	//int_vector<> T;
-	vector<ctype> T;
+	vector<uint16_t> T;
 
 	itype n = 0;
 	itype non_blank_characters = 0;
@@ -524,12 +492,17 @@ private:
 
 	uint8_t width = 0;
 
-	uint64_t eof = 0;
+	//const uint16_t eof = (~uint16_t(0))-1;
+
+	/*
+	 * max symbol contained in the text
+	 */
+	ctype max_symbol = 0;
 
 };
 
-typedef skippable_text_lf<skippable_text_hf32_t, uint32_t, uint32_t> skippable_text_lf32_t;
-typedef skippable_text_lf<skippable_text_hf64_t, uint64_t, uint64_t> skippable_text_lf64_t;
+typedef skippable_text<uint32_t, uint32_t> skippable_text32_t;
+typedef skippable_text<uint64_t, uint64_t> skippable_text64_t;
 
 
-#endif /* INTERNAL_SKIPPABLE_TEXT_LF_HPP_ */
+#endif /* INTERNAL_SKIPPABLE_TEXT_HPP_ */
