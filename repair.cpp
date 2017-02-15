@@ -37,20 +37,16 @@
 #include "internal/hf_queue.hpp"
 #include "internal/skippable_text.hpp"
 #include "internal/text_positions.hpp"
-
+#include "internal/packed_file.hpp"
 
 using namespace std;
 
 void help(){
 
-	cout << "Compute space-efficiently (roughly (2n + sqrt(n)) * log n bits) the Re-Pair grammar of a string" << endl << endl;
-	cout << "Usage: repair <input> <output>" << endl;
+	cout << "Compress a file using the Re-Pair grammar. Space usage: roughly 6n Bytes of RAM, where n < 2^32 is the file size." << endl << endl;
+	cout << "Usage: repair <input> [output]" << endl;
 	cout << "   <input>   input text file" << endl;
-	cout << "   <output>  two files are generated:" << endl;
-	cout << "             1. output.rp is the compressed text composed of dictionary/alphabet " << endl;
-	cout << "                symbols (integers) such that no pair of adjacent symbols appears more than once." << endl;
-	cout << "             2. output.g contains the Re-Pair grammar. This is a binary file composed of a" << endl;
-	cout << "                list of triples (integers) XAB representing rule X -> AB" << endl;
+	cout << "   [output]  optional output file name. If not specified, output is saved to input.rp" << endl;
 	exit(0);
 
 }
@@ -283,16 +279,30 @@ void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_hf_t & T, cpair ab){
 
 }
 
+/*
+ * bit-width of x
+ */
+uint64_t wd(uint64_t x){
+
+	auto w = 64 - __builtin_clzll(uint64_t(x));
+
+	return x == 0 ? 1 : w;
+
+}
+
+const pair<uint64_t,uint64_t> nullpair = {~uint64_t(0),~uint64_t(0)};
+
+/*
+ * return replaced pair
+ */
 template<typename queue_t>
-void substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
+pair<uint64_t,uint64_t> substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 
 	using ctype = text_hf_t::char_type;
 
-	//compute max and min
+	//compute max
 	cpair AB = Q.max();
-
 	assert(Q.contains(AB));
-
 	assert(Q[AB].F_ab >= Q.minimum_frequency());
 
 	//extract P_AB and L_AB
@@ -301,10 +311,15 @@ void substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 	itype P_AB = q_el.P_ab;
 	itype L_AB = q_el.L_ab;
 
-	cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
+	pair<uint64_t,uint64_t> replaced = {AB.first, AB.second};
+
+	//cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
 
 	//output new rule
-	cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
+	//cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
+
+	//cout << X-AB.first << " " << AB.second << endl;
+
 
 	for(itype j = P_AB; j<P_AB+L_AB;++j){
 
@@ -401,12 +416,15 @@ void substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 	//advance next free dictionary symbol
 	X++;
 
-	//TODO
-	cout << " current text size = " << T.number_of_non_blank_characters() << endl << endl;
+	//cout << " current text size = " << T.number_of_non_blank_characters() << endl << endl;
+
+	return replaced;
 
 }
 
-void compute_repair(string in, string out_rp, string out_g){
+void compute_repair(string in, string out){
+
+	packed_file<> out_file(out);
 
 	/*
 	 * tradeoff between low-frequency and high-freq phase:
@@ -417,7 +435,7 @@ void compute_repair(string in, string out_rp, string out_g){
 	 * - Low-freq phase will use n^alpha words of memory
 	 *
 	 */
-	double alpha = 0.666; // = 2/3
+	double alpha = 0.66; // = 2/3
 
 	/*
 	 * in the low-frequency pair processing phase, insert at most n/B elements in the hash
@@ -496,6 +514,12 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	}
 
+	/*
+	 * store to file alphabet size and alphabet mapping
+	 */
+	out_file.push_back(sigma);
+	for(int S = 0;S<sigma;++S) out_file.push_back(int_to_char[S]);
+
 	cout << "done. " << endl << endl;
 
 	cout << "alphabet size is " << sigma  << endl << endl;
@@ -518,11 +542,14 @@ void compute_repair(string in, string out_rp, string out_g){
 
 	cout << "done. Number of distinct high-frequency pairs = " << HFQ.size() << endl;
 
-	cout << "Replacing high-frequency pairs ... " << endl;
+	cout << "Replacing high-frequency pairs ... " << flush;
 
 	while(HFQ.size() > 0){
 
-		substitution_round<hf_q_t>(HFQ, TP, T);
+		auto replaced = substitution_round<hf_q_t>(HFQ, TP, T);
+
+		out_file.push_back(replaced.first);
+		out_file.push_back(replaced.second);
 
 	}
 
@@ -565,11 +592,7 @@ void compute_repair(string in, string out_rp, string out_g){
 
 		}else{
 
-			//assert(f<frequencies.size());
-
-			//frequencies[f]++;
 			f=1;
-
 			n_lf_pairs++;
 
 		}
@@ -577,50 +600,6 @@ void compute_repair(string in, string out_rp, string out_g){
 	}
 	cout << "done. Number of distict low-frequency pairs: "<< n_lf_pairs << endl;
 
-	/*
-	 * scan vector counting multiplicities of frequencies
-	 *
-	 * after this loop, frequencies[f] will contain number of pairs with frequency f
-	 * that are allowed being inserted in the queue
-	 *
-	 */
-	/*uint64_t count = 0; //number of pairs
-	for(f=min_high_frequency-1;f>2;--f){
-
-		if(count < max_lfq_capacity){
-
-			if(count + frequencies[f] <= max_lfq_capacity){
-
-				count += frequencies[f];
-
-			}else{
-
-				/*
-				 * count = 10
-				 * max_lfq_capacity = 15
-				 * frequencies = 6
-				 *
-				 * max_lfq_capacity - count
-				 *
-				 */
-
-				/*auto free_slots = max_lfq_capacity - count;
-
-				assert(free_slots < frequencies[f]);
-
-				frequencies[f] = free_slots;
-
-				count = max_lfq_capacity;
-
-			}
-
-		}else{
-
-			frequencies[f] = 0;
-
-		}
-
-	}*/
 
 	cout << "Filling low-frequency queue ... " << flush;
 
@@ -665,15 +644,40 @@ void compute_repair(string in, string out_rp, string out_g){
 
 
 
-	cout << "Replacing low-frequency pairs ... " << endl;
+	cout << "Replacing low-frequency pairs ... " << flush;
+
+	pair<uint64_t,uint64_t> replaced = {0,0};
 
 	while(LFQ.size() > 0){
 
-		substitution_round<lf_q_t>(LFQ, TP, T);
+		auto replaced1 = substitution_round<lf_q_t>(LFQ, TP, T);
+
+		//cout << int(replaced1.first) - int(replaced.first) << " " << flush;
+
+		replaced = replaced1;
+
+		out_file.push_back(replaced.first);
+		out_file.push_back(replaced.second);
 
 	}
 
 	cout << "done. " << endl;
+
+	out_file.push_back(~uint64_t(0));//delimiter: now starts the text
+
+	for(uint64_t i = 0;i<T.size();++i){
+
+		if(not T.is_blank(i)){
+
+			out_file.push_back(uint64_t(T[i]));
+
+		}
+
+	}
+
+	out_file.close();
+
+	cout << "Information content of the compressed file = " << out_file.get_information_content()/8 << " Bytes" << endl;
 
 }
 
@@ -681,21 +685,27 @@ void compute_repair(string in, string out_rp, string out_g){
 
 int main(int argc,char** argv) {
 
-	if(argc!=3) help();
+	if(argc!=3 and argc != 2) help();
 
 	string in(argv[1]);
-	string out_prefix(argv[2]);
 
-	string out_rp = out_prefix;
-	out_rp.append(".rp");
+	string out;
 
-	string out_g = out_prefix;
-	out_g.append(".g");
+	if(argc == 3){
+
+		out = string(argv[2]);
+
+	}else{
+
+		out = string(argv[1]);
+		out.append(".rp");
+
+	}
 
 	cout << "Compressing file " << in << endl;
-	cout << "Output will be saved to files " << out_rp  << " and " << out_g << endl<<endl;
+	cout << "Output will be saved to files " << out << endl<<endl;
 
-	compute_repair(in, out_rp, out_g);
+	compute_repair(in, out);
 
 }
 
