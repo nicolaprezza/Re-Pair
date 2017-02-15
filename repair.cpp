@@ -417,7 +417,7 @@ void compute_repair(string in, string out_rp, string out_g){
 	 * - Low-freq phase will use n^alpha words of memory
 	 *
 	 */
-	double alpha = 0.66;
+	double alpha = 0.666; // = 2/3
 
 	/*
 	 * in the low-frequency pair processing phase, insert at most n/B elements in the hash
@@ -532,7 +532,7 @@ void compute_repair(string in, string out_rp, string out_g){
 	cout << "\nSTEP 2. LOW FREQUENCY PAIRS" << endl << endl;
 
 
-	cout << "Compacting text positions and TP array ... " << flush;
+	cout << "Re-computing TP array ... " << flush;
 
 	//T.compact(); //remove blank positions
 	TP.fill_with_text_positions(); //store here all remaining text positions
@@ -665,7 +665,7 @@ void compute_repair(string in, string out_rp, string out_g){
 
 
 
-	cout << "Replacing low-frequency pairs ... " << flush;
+	cout << "Replacing low-frequency pairs ... " << endl;
 
 	while(LFQ.size() > 0){
 

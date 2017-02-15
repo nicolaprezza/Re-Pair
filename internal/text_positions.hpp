@@ -143,6 +143,8 @@ public:
 
 		assert(T->number_of_non_blank_characters() > 1);
 
+		TP = vector<itype>(0);//free memory
+
 		//TP.resize(T->number_of_non_blank_characters()-1);
 		TP = vector<itype>(T->number_of_non_blank_characters()-1);
 
