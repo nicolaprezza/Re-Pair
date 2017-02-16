@@ -70,9 +70,10 @@ using itype = uint64_t;
 
 using cpair = hf_q_t::cpair;
 
-
 //next free dictionary symbol
 itype X=0;
+
+cpair last_AB = {0,0};
 
 /*
  * Given (empty) queue, text positions, text, and minimum frequency: insert in Q all pairs with frequency at least min_freq.
@@ -162,11 +163,6 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_hf_t & T, uint64_t min
 template<typename queue_t>
 void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
 
-	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
-
-	assert(Q.size() > 0);
-	assert(Q[Q.max()].F_ab >= Q.minimum_frequency());
-
 	//variables associated with AB
 	assert(Q.contains(AB));
 	auto q_el = Q[AB];
@@ -234,13 +230,10 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
 	//it could be that now AB's frequency is too small: delete it
 	if(freq_AB < Q.minimum_frequency()){
 
-		Q.remove(AB);//automatically re-computes min/max
+		Q.remove(AB);
 
 	}
 
-	//Q does not contain its max -> Q.size() == 0
-	assert(Q.contains(Q.max()) || Q.size() == 0);
-	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
 	assert(not Q.contains(AB) || Q[AB].F_ab == Q[AB].L_ab);
 
 }
@@ -293,15 +286,18 @@ uint64_t wd(uint64_t x){
 const pair<uint64_t,uint64_t> nullpair = {~uint64_t(0),~uint64_t(0)};
 
 /*
- * return replaced pair
+ * return frequency of replaced pair
  */
 template<typename queue_t>
-pair<uint64_t,uint64_t> substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
+uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T, packed_file<>& out){
 
 	using ctype = text_hf_t::char_type;
 
 	//compute max
 	cpair AB = Q.max();
+
+	//cout << "MAX freq = " << Q[AB].F_ab << endl;
+
 	assert(Q.contains(AB));
 	assert(Q[AB].F_ab >= Q.minimum_frequency());
 
@@ -311,15 +307,21 @@ pair<uint64_t,uint64_t> substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T
 	itype P_AB = q_el.P_ab;
 	itype L_AB = q_el.L_ab;
 
-	pair<uint64_t,uint64_t> replaced = {AB.first, AB.second};
+	uint64_t f_replaced = F_AB;
+
+	cout << F_AB << " " << AB.first << endl;
 
 	//cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
 
 	//output new rule
 	//cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
 
-	//cout << X-AB.first << " " << AB.second << endl;
+	//cout << (AB.first >= last_AB.first ? AB.first-last_AB.first : last_AB.first - AB.first) <<  " " << flush;
 
+	out.push_back(AB.first);
+	out.push_back(AB.second);
+
+	last_AB = AB;
 
 	for(itype j = P_AB; j<P_AB+L_AB;++j){
 
@@ -346,15 +348,11 @@ pair<uint64_t,uint64_t> substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T
 
 			if(Q.contains(xA) && xA != AB){
 
-				assert(Q[xA].F_ab > 0);
-
 				Q.decrease(xA);
 
 			}
 
 			if(Q.contains(By) && By != AB){
-
-				assert(Q[By].F_ab > 0);
 
 				Q.decrease(By);
 
@@ -410,15 +408,12 @@ pair<uint64_t,uint64_t> substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T
 	synchronize_hf<queue_t>(Q, TP, T, AB); //automatically removes AB since new AB's frequency is 0
 	assert(not Q.contains(AB));
 
-	assert(Q.contains(Q.max()) or Q.size() == 0);
-	assert(not Q.contains(Q.max()) || Q[Q.max()].F_ab >= Q.minimum_frequency());
-
 	//advance next free dictionary symbol
 	X++;
 
 	//cout << " current text size = " << T.number_of_non_blank_characters() << endl << endl;
 
-	return replaced;
+	return f_replaced;
 
 }
 
@@ -542,14 +537,33 @@ void compute_repair(string in, string out){
 
 	cout << "done. Number of distinct high-frequency pairs = " << HFQ.size() << endl;
 
-	cout << "Replacing high-frequency pairs ... " << flush;
+	cout << "Replacing high-frequency pairs ... " << endl;
 
-	while(HFQ.size() > 0){
+	int last_perc = -1;
+	uint64_t F = 0;//largest freq
 
-		auto replaced = substitution_round<hf_q_t>(HFQ, TP, T);
+	while(HFQ.max() != HFQ.nullpair()){
 
-		out_file.push_back(replaced.first);
-		out_file.push_back(replaced.second);
+		auto f = substitution_round<hf_q_t>(HFQ, TP, T,out_file);
+
+		if(last_perc == -1){
+
+			F = f;
+
+			last_perc = 0;
+
+		}else{
+
+			int perc = 100-(100*f)/F;
+
+			if(perc > last_perc+4){
+
+				last_perc = perc;
+				//cout << perc << "%" << endl;
+
+			}
+
+		}
 
 	}
 
@@ -644,20 +658,26 @@ void compute_repair(string in, string out){
 
 
 
-	cout << "Replacing low-frequency pairs ... " << flush;
+	cout << "Replacing low-frequency pairs ... " << endl;
 
 	pair<uint64_t,uint64_t> replaced = {0,0};
 
-	while(LFQ.size() > 0){
+	last_perc = -1;
+	uint64_t tl = T.number_of_non_blank_characters();
 
-		auto replaced1 = substitution_round<lf_q_t>(LFQ, TP, T);
+	while(LFQ.max() != LFQ.nullpair()){
 
-		//cout << int(replaced1.first) - int(replaced.first) << " " << flush;
+		auto f = substitution_round<lf_q_t>(LFQ, TP, T,out_file);
 
-		replaced = replaced1;
+		int perc = 100-(100*T.number_of_non_blank_characters())/tl;
 
-		out_file.push_back(replaced.first);
-		out_file.push_back(replaced.second);
+		if(perc>last_perc+4){
+
+			last_perc = perc;
+
+			//cout << perc << "%" << endl;
+
+		}
 
 	}
 
@@ -677,7 +697,7 @@ void compute_repair(string in, string out){
 
 	out_file.close();
 
-	cout << "Information content of the compressed file = " << out_file.get_information_content()/8 << " Bytes" << endl;
+	cout << "Cumulative bitlength of grammar = " << out_file.get_information_content()/8 << " Bytes" << endl;
 
 }
 
@@ -701,6 +721,8 @@ int main(int argc,char** argv) {
 		out.append(".rp");
 
 	}
+
+	if(not ifstream(in).good()) help();
 
 	cout << "Compressing file " << in << endl;
 	cout << "Output will be saved to files " << out << endl<<endl;

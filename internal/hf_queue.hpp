@@ -98,7 +98,7 @@ public:
 	 */
 	triple_t operator[](cpair ab){
 
-		assert(ab != nullpair);
+		assert(ab != NULLPAIR);
 		assert(contains(ab));
 
 		return H[ab];
@@ -110,10 +110,10 @@ public:
 	 */
 	cpair max(){
 
-		if(n==0) return nullpair;
+		if(n==0) return NULLPAIR;
 
 		itype max_F = 0;
-		cpair max_pair = nullpair;
+		cpair max_pair = NULLPAIR;
 
 		for(cpair p : pairs_in_hash){
 
@@ -132,7 +132,7 @@ public:
 
 		}
 
-		assert(max_pair != nullpair);
+		assert(max_pair != NULLPAIR);
 		return max_pair;
 
 	}
@@ -152,7 +152,7 @@ public:
 
 	bool contains(cpair ab){
 
-		assert(H.count(nullpair) == 0);
+		assert(H.count(NULLPAIR) == 0);
 
 		return H.count(ab) == 1;
 
@@ -196,7 +196,7 @@ public:
 		n++;
 
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
-		assert(max() != nullpair);
+		assert(max() != NULLPAIR);
 		assert(contains(max()));
 		assert(H[ab].P_ab == el.P_ab);
 		assert(H[ab].L_ab == el.L_ab);
@@ -220,9 +220,13 @@ public:
 		H[ab].F_ab = el.F_ab;
 
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
-		assert(max() != nullpair);
+		assert(max() != NULLPAIR);
 		assert(contains(max()));
 
+	}
+
+	cpair nullpair(){
+		return NULLPAIR;
 	}
 
 private:
@@ -234,7 +238,7 @@ private:
 
 	const itype null = ~itype(0);
 
-	const cpair nullpair = {null,null};
+	const cpair NULLPAIR = {null,null};
 
 	itype n = 0;//number of pairs in queue
 
