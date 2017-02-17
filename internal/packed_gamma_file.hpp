@@ -150,6 +150,112 @@ public:
 
 	}
 
+	/*
+	 * input: alphabet encoding A (ascii -> integers in {0,...,|A|-1}), grammar G (pairs) and compressed text T
+	 *
+	 * compress G and T and store them to file
+	 *
+	 * compression techniques:
+	 *
+	 * 	- the maximums of G's pairs form M increasing sequences; we compress them with gamma encoding
+	 * 	- |G| bits to remember who was the max in each pair
+	 * 	- M starting values for the M increasing sequences
+	 * 	- gap-encoded bitvector to store the beginnings of the M increasing sequences
+	 * 	- the minimums are stored without compression
+	 *
+	 * 	- TOTAL SIZE: A log A + G log G + G + 2M log (G/M) + G log M bits
+	 *
+	 */
+	void compress_and_store_2(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & T){
+
+		//store A
+		push_back(A.size());
+		for(auto a : A) push_back(a);
+
+		//store G
+		vector<uint64_t> deltas; //deltas between the pair's maximums
+		vector<uint64_t> starting_values; //starting values of each increasing sequence
+		vector<uint64_t> deltas_starting_points; //starting values of each increasing sequence
+		vector<uint64_t> deltas_minimums; //maximums - minimums
+		vector<bool> max_first; //the max is the first in the pair. If false, the min is the first in the pair
+
+		uint64_t last_max = 0;
+
+		uint64_t last_incr_seq = 0; //index of last pair that started an increasing sequence
+		uint64_t i = 0;//pair number
+
+		for(auto ab: G){
+
+			max_first.push_back(ab.first >= ab.second);
+
+			uint64_t max = std::max(ab.first,ab.second);
+			uint64_t delta_min = max - std::min(ab.first,ab.second);
+
+			deltas_minimums.push_back(delta_min);
+
+			if(max>=last_max){
+
+				deltas.push_back(max-last_max);
+
+			}else{
+
+				//i-th pair starts a new increasing seq
+				starting_values.push_back(max);
+				deltas_starting_points.push_back(i-last_incr_seq);
+				last_incr_seq = i;
+
+			}
+
+			last_max = max;
+			i++;
+
+		}
+
+		push_back(deltas.size()); for(auto x:deltas) push_back(x);
+		push_back(starting_values.size());for(auto x:starting_values) push_back(x);
+		push_back(deltas_starting_points.size());for(auto x:deltas_starting_points) push_back(x);
+		push_back(deltas_minimums.size());for(auto x:deltas_minimums) push_back(x);
+		push_back(max_first.size());for(auto x:max_first) push_back(x);
+
+		//store T
+		push_back(T.size());
+		for(auto a : T) push_back(a);
+
+		close();
+
+	}
+
+
+	/*
+	 * input: alphabet encoding A (ascii -> integers in {0,...,|A|-1}), grammar G (pairs) and compressed text T
+	 *
+	 * store A, G, T to file without compression
+	 *
+	 * TOTAL SIZE: A log A + 2 G log G
+	 *
+	 */
+	void compress_and_store_1(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & T){
+
+		//store A
+		push_back(A.size());
+		for(auto a : A) push_back(a);
+
+		//Store G
+		push_back(G.size());
+		for(auto ab : G){
+
+			push_back(ab.first);
+			push_back(ab.second);
+
+		}
+
+		//store T
+		push_back(T.size());
+		for(auto a : T) push_back(a);
+
+		close();
+
+	}
 
 private:
 
@@ -269,8 +375,6 @@ private:
 
 	ifstream in;
 	ofstream out;
-
-	bool end_of_file = false;
 
 	/*
 	 * stores accumulated bitlength of all integers stored in the file

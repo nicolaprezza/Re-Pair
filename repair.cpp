@@ -73,17 +73,12 @@ using cpair = hf_q_t::cpair;
 //next free dictionary symbol
 itype X=0;
 
-cpair last_AB = {0,0};
+itype last_freq = 0;
+itype n_distinct_freqs = 0;
 
-//vector storing the rules
-vector<itype> deltas_max;//deltas between the maximums
-vector<itype> mins;//the minimums
-vector<bool> is_B_min;//is the minimum = B? (and thus delta refers to A)
-vector<itype> start_increasing;//store starting points of increasing sequences in deltas_max
-vector<itype> starting_values;//store starting values of the deltas
-
-itype current_rule = 0;
-itype last_rule = 0;
+vector<uint64_t> A; //alphabet (mapping int->ascii)
+vector<pair<uint64_t, uint64_t> > G; //grammar
+vector<uint64_t> T;// compressed text
 
 /*
  * Given (empty) queue, text positions, text, and minimum frequency: insert in Q all pairs with frequency at least min_freq.
@@ -299,12 +294,14 @@ const pair<uint64_t,uint64_t> nullpair = {~uint64_t(0),~uint64_t(0)};
  * return frequency of replaced pair
  */
 template<typename queue_t>
-uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T, packed_gamma_file<>& out){
+uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 
 	using ctype = text_hf_t::char_type;
 
 	//compute max
 	cpair AB = Q.max();
+
+	G.push_back(AB);
 
 	//cout << "MAX freq = " << Q[AB].F_ab << endl;
 
@@ -319,55 +316,8 @@ uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T, packed_gamma_
 
 	uint64_t f_replaced = F_AB;
 
-	//TODO output
-	//cout << F_AB << " " << std::max(AB.first,AB.second) << endl;
-
-	//cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
-
-	//output new rule
-	//cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
-
-
-	/*
-	 * DELTA-ENCODING OUTPUT RULES
-	 */
-
-	ctype last_max = std::max(last_AB.first,last_AB.second);
-	ctype last_min = std::min(last_AB.first,last_AB.second);
-
-	ctype this_max = std::max(AB.first,AB.second);
-	ctype this_min = std::min(AB.first,AB.second);
-
-	ctype delta = this_max >= last_max ? this_max - last_max : this_max;
-
-	//out.push_back(AB.first);
-	//out.push_back(AB.second);
-
-	mins.push_back(this_max-this_min);
-
-	//we are starting a new increasing sequence
-	if(this_max < last_max){
-
-		starting_values.push_back(delta);
-		start_increasing.push_back(current_rule-last_rule);//delta-encode also starting points
-
-		last_rule = current_rule;
-
-	}else{
-
-		deltas_max.push_back(delta);
-
-	}
-
-	//if true, mins contains B and deltas contains (delta of) A. If false, the opposite.
-	is_B_min.push_back( AB.second < AB.first );
-
-	last_AB = AB;
-	current_rule++;
-
-	/*
-	 * END DELTA-ENCODING OUTPUT RULES
-	 */
+	n_distinct_freqs += (F_AB != last_freq);
+	last_freq = F_AB;
 
 	for(itype j = P_AB; j<P_AB+L_AB;++j){
 
@@ -501,7 +451,6 @@ void compute_repair(string in, string out){
 	ifstream ifs(in);
 
 	vector<itype> char_to_int(256,null);
-	vector<itype> int_to_char(256,null);
 
 	//count file size
 	{
@@ -540,13 +489,13 @@ void compute_repair(string in, string out){
 	cout << "filling skippable text with text characters ... " << flush;
 
 	char c;
+
 	while(ifs.get(c)){
 
 		if(char_to_int[uint8_t(c)] == null){
 
 			char_to_int[uint8_t(c)] = sigma;
-			int_to_char[sigma] = uint8_t(c);
-
+			A.push_back(uint8_t(c));
 			sigma++;
 
 		}
@@ -559,7 +508,7 @@ void compute_repair(string in, string out){
 	 * store to file alphabet size and alphabet mapping
 	 */
 	out_file.push_back(sigma);
-	for(int S = 0;S<sigma;++S) out_file.push_back(int_to_char[S]);
+	for(int S = 0;S<sigma;++S) out_file.push_back(A[S]);
 
 	cout << "done. " << endl << endl;
 
@@ -590,7 +539,7 @@ void compute_repair(string in, string out){
 
 	while(HFQ.max() != HFQ.nullpair()){
 
-		auto f = substitution_round<hf_q_t>(HFQ, TP, T,out_file);
+		auto f = substitution_round<hf_q_t>(HFQ, TP, T);
 
 		if(last_perc == -1){
 
@@ -713,7 +662,7 @@ void compute_repair(string in, string out){
 
 	while(LFQ.max() != LFQ.nullpair()){
 
-		auto f = substitution_round<lf_q_t>(LFQ, TP, T,out_file);
+		auto f = substitution_round<lf_q_t>(LFQ, TP, T);
 
 		int perc = 100-(100*T.number_of_non_blank_characters())/tl;
 
@@ -731,47 +680,17 @@ void compute_repair(string in, string out){
 
 	cout << "Compressing grammar and storing it to file ... " << flush;
 
-	/*
-	 * STORE GRAMMAR TO FILE
-	 */
+	vector<uint64_t> T_vec;
+	for(itype i=0;i<T.size();++i){
 
-	for(auto x : mins) out_file.push_back(x);
-	for(auto x : starting_values) out_file.push_back(x);
-	for(auto x : start_increasing) out_file.push_back(x);
-	for(auto x : deltas_max) out_file.push_back(x);
-	for(auto x : is_B_min) out_file.push_back(x);
-
-	/*for(auto x : mins) cout << x << " ";cout << endl << endl;
-	for(auto x : starting_values) cout << x << " ";cout << endl << endl;
-	for(auto x : start_increasing) cout << x << " ";cout << endl << endl;
-	for(auto x : deltas_max) cout << x << " ";cout << endl << endl;
-	for(auto x : is_B_min) cout << x << " ";cout << endl << endl;*/
-
-
-	/*
-	 * STORE COMPRESSED TEXT TO FILE
-	 */
-
-	out_file.push_back(~uint64_t(0));//delimiter: now starts the text
-
-	for(uint64_t i = 0;i<T.size();++i){
-
-		if(not T.is_blank(i)){
-
-			out_file.push_back(uint64_t(T[i]));
-
-		}
+		if(not T.is_blank(i)) T_vec.push_back(T[i]);
 
 	}
 
-	out_file.close();
+	//out_file.compress_and_store_1(A,G,T_vec);//no compression
+	out_file.compress_and_store_2(A,G,T_vec);//delta compression
 
-
-	cout << "done. " << starting_values.size() << " increasing sequences, " << mins.size() << " rules." << endl;
-
-	cout << "Bytes stored to file = " << out_file.written_bytes() << endl;
-	cout << "Lower bound = " << out_file.lower_bound_bytes() << endl;
-	cout << "Overhead = " << out_file.overhead() << "%" << endl;
+	cout << " done." << endl;
 
 }
 
