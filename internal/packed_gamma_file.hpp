@@ -54,6 +54,8 @@ public:
 	 */
 	void push_back(uint64_t x){
 
+		//cout << x << " ";
+
 		assert(write);
 
 		if(buffer.size() == block_size){
