@@ -37,7 +37,7 @@
 #include "internal/hf_queue.hpp"
 #include "internal/skippable_text.hpp"
 #include "internal/text_positions.hpp"
-#include "internal/packed_file.hpp"
+#include "internal/packed_gamma_file.hpp"
 
 using namespace std;
 
@@ -74,6 +74,16 @@ using cpair = hf_q_t::cpair;
 itype X=0;
 
 cpair last_AB = {0,0};
+
+//vector storing the rules
+vector<itype> deltas_max;//deltas between the maximums
+vector<itype> mins;//the minimums
+vector<bool> is_B_min;//is the minimum = B? (and thus delta refers to A)
+vector<itype> start_increasing;//store starting points of increasing sequences in deltas_max
+vector<itype> starting_values;//store starting values of the deltas
+
+itype current_rule = 0;
+itype last_rule = 0;
 
 /*
  * Given (empty) queue, text positions, text, and minimum frequency: insert in Q all pairs with frequency at least min_freq.
@@ -289,7 +299,7 @@ const pair<uint64_t,uint64_t> nullpair = {~uint64_t(0),~uint64_t(0)};
  * return frequency of replaced pair
  */
 template<typename queue_t>
-uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T, packed_file<>& out){
+uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T, packed_gamma_file<>& out){
 
 	using ctype = text_hf_t::char_type;
 
@@ -309,19 +319,55 @@ uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T, packed_file<>
 
 	uint64_t f_replaced = F_AB;
 
-	cout << F_AB << " " << AB.first << endl;
+	//TODO output
+	//cout << F_AB << " " << std::max(AB.first,AB.second) << endl;
 
 	//cout << " extracted MAX = " << AB.first << " " << AB.second << " (frequency = " << F_AB << ")" << endl;
 
 	//output new rule
 	//cout << " new rule: " << X << " -> " << AB.first << " " << AB.second << endl;
 
-	//cout << (AB.first >= last_AB.first ? AB.first-last_AB.first : last_AB.first - AB.first) <<  " " << flush;
 
-	out.push_back(AB.first);
-	out.push_back(AB.second);
+	/*
+	 * DELTA-ENCODING OUTPUT RULES
+	 */
+
+	ctype last_max = std::max(last_AB.first,last_AB.second);
+	ctype last_min = std::min(last_AB.first,last_AB.second);
+
+	ctype this_max = std::max(AB.first,AB.second);
+	ctype this_min = std::min(AB.first,AB.second);
+
+	ctype delta = this_max >= last_max ? this_max - last_max : this_max;
+
+	//out.push_back(AB.first);
+	//out.push_back(AB.second);
+
+	mins.push_back(this_max-this_min);
+
+	//we are starting a new increasing sequence
+	if(this_max < last_max){
+
+		starting_values.push_back(delta);
+		start_increasing.push_back(current_rule-last_rule);//delta-encode also starting points
+
+		last_rule = current_rule;
+
+	}else{
+
+		deltas_max.push_back(delta);
+
+	}
+
+	//if true, mins contains B and deltas contains (delta of) A. If false, the opposite.
+	is_B_min.push_back( AB.second < AB.first );
 
 	last_AB = AB;
+	current_rule++;
+
+	/*
+	 * END DELTA-ENCODING OUTPUT RULES
+	 */
 
 	for(itype j = P_AB; j<P_AB+L_AB;++j){
 
@@ -419,7 +465,7 @@ uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T, packed_file<>
 
 void compute_repair(string in, string out){
 
-	packed_file<> out_file(out);
+	packed_gamma_file<> out_file(out);
 
 	/*
 	 * tradeoff between low-frequency and high-freq phase:
@@ -559,7 +605,7 @@ void compute_repair(string in, string out){
 			if(perc > last_perc+4){
 
 				last_perc = perc;
-				//cout << perc << "%" << endl;
+				cout << perc << "%" << endl;
 
 			}
 
@@ -675,13 +721,36 @@ void compute_repair(string in, string out){
 
 			last_perc = perc;
 
-			//cout << perc << "%" << endl;
+			cout << perc << "%" << endl;
 
 		}
 
 	}
 
 	cout << "done. " << endl;
+
+	cout << "Compressing grammar and storing it to file ... " << flush;
+
+	/*
+	 * STORE GRAMMAR TO FILE
+	 */
+
+	for(auto x : mins) out_file.push_back(x);
+	for(auto x : starting_values) out_file.push_back(x);
+	for(auto x : start_increasing) out_file.push_back(x);
+	for(auto x : deltas_max) out_file.push_back(x);
+	for(auto x : is_B_min) out_file.push_back(x);
+
+	/*for(auto x : mins) cout << x << " ";cout << endl << endl;
+	for(auto x : starting_values) cout << x << " ";cout << endl << endl;
+	for(auto x : start_increasing) cout << x << " ";cout << endl << endl;
+	for(auto x : deltas_max) cout << x << " ";cout << endl << endl;
+	for(auto x : is_B_min) cout << x << " ";cout << endl << endl;*/
+
+
+	/*
+	 * STORE COMPRESSED TEXT TO FILE
+	 */
 
 	out_file.push_back(~uint64_t(0));//delimiter: now starts the text
 
@@ -697,7 +766,12 @@ void compute_repair(string in, string out){
 
 	out_file.close();
 
-	cout << "Cumulative bitlength of grammar = " << out_file.get_information_content()/8 << " Bytes" << endl;
+
+	cout << "done. " << starting_values.size() << " increasing sequences, " << mins.size() << " rules." << endl;
+
+	cout << "Bytes stored to file = " << out_file.written_bytes() << endl;
+	cout << "Lower bound = " << out_file.lower_bound_bytes() << endl;
+	cout << "Overhead = " << out_file.overhead() << "%" << endl;
 
 }
 

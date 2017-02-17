@@ -167,7 +167,12 @@ public:
 				//if this is the first element of this list, sort the list
 				if(F_idx[MAX] == 0 and not is_sorted[MAX]){
 
-					std::sort(F[MAX].begin(),F[MAX].end());
+					std::sort(F[MAX].begin(),F[MAX].end(),
+							[](const cpair & a, const cpair & b) -> bool
+							{
+							    return std::max(a.first,a.second) < std::max(b.first,b.second);
+							});
+
 					is_sorted[MAX] = true;
 
 				}
