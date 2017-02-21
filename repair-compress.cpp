@@ -52,7 +52,7 @@ void help(){
 }
 
 //high/low frequency text type
-using text_hf_t = skippable_text32_t;
+using text_t = skippable_text32_t;
 
 using TP_t = text_positions32_t;
 
@@ -61,7 +61,7 @@ using lf_q_t = lf_queue32_t;
 using itype = uint32_t;
 
 /*
-using text_hf_t = skippable_text64_t;
+using text_t = skippable_text64_t;
 using TP_t = text_positions64_t;
 using hf_q_t = hf_queue64_t;
 using lf_q_t = lf_queue64_t;
@@ -86,7 +86,7 @@ vector<uint64_t> T;// compressed text
  * assumptions: TP is sorted by character pairs, Q is void
  *
  */
-void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_hf_t & T, uint64_t min_freq){
+void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_freq){
 
 	itype j = 0; //current position on TP
 	itype n = TP.size();
@@ -166,7 +166,7 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_hf_t & T, uint64_t min
  * synchronize queue in range corresponding to pair AB.
  */
 template<typename queue_t>
-void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
+void synchronize(queue_t & Q, TP_t & TP, text_t & T, cpair AB){
 
 	//variables associated with AB
 	assert(Q.contains(AB));
@@ -253,7 +253,7 @@ void synchronize_hf(queue_t & Q, TP_t & TP, text_hf_t & T, cpair AB){
  *
  */
 template<typename queue_t>
-void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_hf_t & T, cpair ab){
+void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_t & T, cpair ab){
 
 	assert(Q.contains(ab));
 
@@ -263,7 +263,7 @@ void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_hf_t & T, cpair ab){
 
 	if(F_ab <= L_ab/2){
 
-		synchronize_hf<queue_t>(Q, TP, T, ab);
+		synchronize<queue_t>(Q, TP, T, ab);
 
 	}else{
 
@@ -277,6 +277,7 @@ void synchro_or_remove_pair(queue_t & Q, TP_t & TP, text_hf_t & T, cpair ab){
 
 }
 
+
 /*
  * bit-width of x
  */
@@ -288,15 +289,17 @@ uint64_t wd(uint64_t x){
 
 }
 
+
 const pair<uint64_t,uint64_t> nullpair = {~uint64_t(0),~uint64_t(0)};
+
 
 /*
  * return frequency of replaced pair
  */
 template<typename queue_t>
-uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
+uint64_t substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
-	using ctype = text_hf_t::char_type;
+	using ctype = text_t::char_type;
 
 	//compute max
 	cpair AB = Q.max();
@@ -401,7 +404,7 @@ uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 	}
 
 	assert(Q.contains(AB));
-	synchronize_hf<queue_t>(Q, TP, T, AB); //automatically removes AB since new AB's frequency is 0
+	synchronize<queue_t>(Q, TP, T, AB); //automatically removes AB since new AB's frequency is 0
 	assert(not Q.contains(AB));
 
 	//advance next free dictionary symbol
@@ -412,6 +415,7 @@ uint64_t substitution_round(queue_t & Q, TP_t & TP, text_hf_t & T){
 	return f_replaced;
 
 }
+
 
 void compute_repair(string in, string out){
 
@@ -482,7 +486,7 @@ void compute_repair(string in, string out){
 	cout << "Max high-frequency dictionary symbol = " << max_d << endl << endl;
 
 	//initialize text and text positions
-	text_hf_t T(n);
+	text_t T(n);
 
 	itype j = 0;
 
@@ -558,9 +562,7 @@ void compute_repair(string in, string out){
 
 	cout << "done. " << endl;
 
-
 	cout << "\nSTEP 2. LOW FREQUENCY PAIRS" << endl << endl;
-
 
 	cout << "Re-computing TP array ... " << flush;
 
@@ -603,7 +605,6 @@ void compute_repair(string in, string out){
 	}
 	cout << "done. Number of distict low-frequency pairs: "<< n_lf_pairs << endl;
 
-
 	cout << "Filling low-frequency queue ... " << flush;
 
 	lf_q_t LFQ(max_lfq_capacity,min_high_frequency-1);
@@ -645,8 +646,6 @@ void compute_repair(string in, string out){
 
 	cout << "done." << endl;
 
-
-
 	cout << "Replacing low-frequency pairs ... " << endl;
 
 	pair<uint64_t,uint64_t> replaced = {0,0};
@@ -687,40 +686,7 @@ void compute_repair(string in, string out){
 }
 
 
-
 int main(int argc,char** argv) {
-
-	/*int n = 1000000;
-
-	packed_gamma_file<> o(argv[1]);
-
-	srand(time(NULL));
-
-	cout << "WRITING" << endl;
-	vector<uint64_t> V1;
-
-	for(int i=0;i<n;++i){
-
-		V1.push_back(rand()%1000);
-
-	}
-
-	for(auto x:V1) o.push_back(x);
-
-	o.close();
-
-	cout << "READING" << endl;
-
-	vector<uint64_t> V2;
-
-	packed_gamma_file<> inp(argv[1],false);
-
-	while(not inp.eof()) V2.push_back(inp.read());
-
-	assert(V1==V2);
-
-
-	exit(0);*/
 
 	if(argc!=3 and argc != 2) help();
 

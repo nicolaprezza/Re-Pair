@@ -55,25 +55,32 @@ void decompress(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vect
 
 	std::stack<uint64_t> S;
 
-	for(uint64_t i = 0;i<Tc.size();++i) S.push(Tc[Tc.size()-i-1]);
+	/*
+	 * decompress Tc symbols one by one
+	 */
+	for(uint64_t i = 0;i<Tc.size();++i){
 
-	while(!S.empty()){
+		S.push(Tc[i]);
 
-		uint64_t X = S.top(); //get symbol
-		S.pop();//remove top
+		while(!S.empty()){
 
-		if(X<A.size()){
+			uint64_t X = S.top(); //get symbol
+			S.pop();//remove top
 
-			//ASCII character
-			T.push_back(A[X]);
+			if(X<A.size()){
 
-		}else{
+				//ASCII character
+				T.push_back(A[X]);
 
-			//expand rule: X -> ab
-			auto ab = G[X-A.size()];
+			}else{
 
-			S.push(ab.second);
-			S.push(ab.first);
+				//expand rule: X -> ab
+				auto ab = G[X-A.size()];
+
+				S.push(ab.second);
+				S.push(ab.first);
+
+			}
 
 		}
 
