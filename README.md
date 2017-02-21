@@ -1,12 +1,10 @@
 Space-efficient computation of the Re-Pair grammar
 ===============
-Author: Nicola Prezza (nicolapr@gmail.com)
+Author: Nicola Prezza (nicola.prezza@gmail.com)
 
-From the paper: Bille P, Gørtz IL, Prezza N. Space-Efficient Re-Pair Compression. arXiv preprint arXiv:1611.01479. 2016 Nov 4.
+From the paper: Bille P, Gørtz IL, Prezza N. Space-Efficient Re-Pair Compression. arXiv preprint arXiv:1611.01479. 2016 Nov 4. (accepted at DCC 2017)
 
 ### Description
-
-NOTE: CODE STILL IN DEVELOPMENT AND NOT YET FINISHED!
 
 This code computes the Re-Pair grammar of a input ASCII file using roughly (2n + eps) * log n bits of RAM during execution, where eps>0 is a small constant. Running time is linear. 
 
@@ -36,9 +34,11 @@ and compile:
 
 After compiling, run 
 
->  repair input.txt out
+>  repair-compress input.txt
 
-This command produces two files: 
+This command produces the compressed file input.txt.rp. To decompress, run
 
-1. out.rp: is the compressed text composed of dictionary/alphabet symbols (integers) such that no pair of adjacent symbols appears more than once.
-2. output.g contains the Re-Pair grammar. This is a binary file composed of a list of triples (integers written consecutively) XAB representing rule X -> AB. By default, the program uses 32-bit integers. This default behavior can be changed by using a different integer type in the template class repair.hpp.
+>  repair-decompress input.txt.rp
+
+This command produces the decompressed file input.txt.rp.decompressed
+
