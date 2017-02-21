@@ -504,12 +504,6 @@ void compute_repair(string in, string out){
 
 	}
 
-	/*
-	 * store to file alphabet size and alphabet mapping
-	 */
-	out_file.push_back(sigma);
-	for(int S = 0;S<sigma;++S) out_file.push_back(A[S]);
-
 	cout << "done. " << endl << endl;
 
 	cout << "alphabet size is " << sigma  << endl << endl;
@@ -678,7 +672,7 @@ void compute_repair(string in, string out){
 
 	cout << "done. " << endl;
 
-	cout << "Compressing grammar and storing it to file ... " << flush;
+	cout << "Compressing grammar and storing it to file ... " << endl << endl;
 
 	vector<uint64_t> T_vec;
 	for(itype i=0;i<T.size();++i){
@@ -690,13 +684,43 @@ void compute_repair(string in, string out){
 	//out_file.compress_and_store_1(A,G,T_vec);//no compression
 	out_file.compress_and_store_2(A,G,T_vec);//delta compression
 
-	cout << " done." << endl;
-
 }
 
 
 
 int main(int argc,char** argv) {
+
+	/*int n = 1000000;
+
+	packed_gamma_file<> o(argv[1]);
+
+	srand(time(NULL));
+
+	cout << "WRITING" << endl;
+	vector<uint64_t> V1;
+
+	for(int i=0;i<n;++i){
+
+		V1.push_back(rand()%1000);
+
+	}
+
+	for(auto x:V1) o.push_back(x);
+
+	o.close();
+
+	cout << "READING" << endl;
+
+	vector<uint64_t> V2;
+
+	packed_gamma_file<> inp(argv[1],false);
+
+	while(not inp.eof()) V2.push_back(inp.read());
+
+	assert(V1==V2);
+
+
+	exit(0);*/
 
 	if(argc!=3 and argc != 2) help();
 
@@ -718,7 +742,7 @@ int main(int argc,char** argv) {
 	if(not ifstream(in).good()) help();
 
 	cout << "Compressing file " << in << endl;
-	cout << "Output will be saved to files " << out << endl<<endl;
+	cout << "Output will be saved to file " << out << endl<<endl;
 
 	compute_repair(in, out);
 

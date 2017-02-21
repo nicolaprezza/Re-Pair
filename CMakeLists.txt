@@ -20,4 +20,5 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -ggdb -g -p")
 set(CMAKE_CXX_FLAGS_RELEASE "-ggdb -Ofast -fstrict-aliasing -DNDEBUG -march=native")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -ggdb -Ofast -fstrict-aliasing -march=native")
 
-add_executable(repair repair.cpp)
+add_executable(repair-compress repair-compress.cpp)
+add_executable(repair-decompress repair-decompress.cpp)
