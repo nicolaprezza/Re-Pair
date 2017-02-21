@@ -49,11 +49,12 @@ void help(){
 
 }
 
-void decompress(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & Tc, string & T){
-
-	T = {};//empty string
+void decompress(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & Tc, ofstream & ofs){
 
 	std::stack<uint64_t> S;
+
+	string buffer;
+	int buf_size = 1000000;//1 MB buffer
 
 	/*
 	 * decompress Tc symbols one by one
@@ -69,8 +70,16 @@ void decompress(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vect
 
 			if(X<A.size()){
 
-				//ASCII character
-				T.push_back(A[X]);
+				char c = A[X];
+
+				buffer.push_back(c);
+
+				if(buffer.size()==buf_size){
+
+					ofs.write(buffer.c_str(),buffer.size());
+					buffer = string();
+
+				}
 
 			}else{
 
@@ -85,6 +94,8 @@ void decompress(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vect
 		}
 
 	}
+
+	if(buffer.size()>0) ofs.write(buffer.c_str(),buffer.size());
 
 }
 
@@ -121,13 +132,9 @@ int main(int argc,char** argv) {
 	//read and decompress grammar
 	pgf.read_and_decompress_2(A,G,Tc);
 
-	string T;
-
-	decompress(A,G,Tc,T);
-
 	ofstream ofs(out);
 
-	ofs.write(T.c_str(),T.size());
+	decompress(A,G,Tc,ofs);
 
 	ofs.close();
 
