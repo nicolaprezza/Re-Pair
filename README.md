@@ -6,7 +6,7 @@ From the paper: Bille P, Gørtz IL, Prezza N. Space-Efficient Re-Pair Compressio
 
 ### Description
 
-This code computes the Re-Pair grammar of a input ASCII file using roughly (2n + eps) * log n bits of RAM during execution, where eps>0 is a small constant. Running time is linear. 
+This code computes the Re-Pair grammar of a input ASCII file using roughly 6n Bytes of RAM during execution, where n is the file length. Running time is linear. 
 
 ### Download
 
