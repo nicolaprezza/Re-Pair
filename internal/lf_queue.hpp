@@ -125,7 +125,6 @@ public:
 		assert(contains(ab));
 
 		auto e = H[ab];
-
 		return {e.P_ab, e.L_ab, e.F_ab};
 
 	}
@@ -251,12 +250,8 @@ public:
 		assert(F_size[el.F_ab]>0);
 
 		F_size[el.F_ab]--;
-
-		//decrease frequency
-		el.F_ab--;
-
-		//now insert the element in its list
-		F[el.F_ab].push_back(ab);
+		el.F_ab--; //decrease frequency
+		F[el.F_ab].push_back(ab); //now insert the element in its list
 		F_size[el.F_ab]++;
 
 		assert(contains(ab));
@@ -275,26 +270,20 @@ public:
 	 */
 	void insert(el_t el){
 
-		itype P_ab = el.P_ab;
-		itype L_ab = el.L_ab;
 		itype F_ab = el.F_ab;
-		cpair ab = el.ab;
 
 		//must insert only pairs with frequency smaller than MAX
 		assert(F_ab <= MAX);
 		assert(F_ab < F.size());
-		assert(not contains(ab));
+		assert(not contains(el.ab));
 		assert(max_size>0);
 
-		//insert ab in its list
-		F[F_ab].push_back(ab);
+		F[F_ab].push_back(el.ab); //insert ab in its list
 		F_size[F_ab]++;
+		H.insert({el.ab,{el.P_ab,el.L_ab,F_ab}}); //insert ab in the hash
 
-		//insert ab in the hash
 		assert(F_ab >= 2);
-		H.insert({ab,{P_ab,L_ab,F_ab}});
-
-		assert(at(ab).F_ab == F_ab);
+		assert(at(el.ab).F_ab == F_ab);
 
 	}
 
@@ -303,33 +292,26 @@ public:
 	}
 
 	/*
-	 * el must be already in the queue. update L_ab value for el
+	 * el must be already in the queue. update P_ab and L_ab value for el
 	 *
 	 * note that el.F_ab must be the same of the frequency stored in the queue
 	 *
 	 */
 	void update(el_t el){
 
-		itype P_ab = el.P_ab;
-		itype L_ab = el.L_ab;
-		itype F_ab = el.F_ab;
-		cpair ab = el.ab;
-
-		assert(contains(ab));
+		assert(contains(el.ab));
 		assert(max_size>0);
-		assert(F_ab < F.size());
+		assert(el.F_ab < F.size());
 
-		auto & e = H[ab];
-		assert(e.F_ab == F_ab);
+		auto & e = H[el.ab];
+		e.P_ab = el.P_ab;
+		e.L_ab = el.L_ab;
 
-		e.P_ab = P_ab;
-		e.L_ab = L_ab;
-
-		assert(H[ab].P_ab == P_ab);
-		assert(H[ab].L_ab == L_ab);
-		assert(H[ab].F_ab == F_ab);
-
-		assert(F_ab >= 2);
+		assert(e.F_ab == el.F_ab);
+		assert(H[el.ab].P_ab == el.P_ab);
+		assert(H[el.ab].L_ab == el.L_ab);
+		assert(H[el.ab].F_ab == el.F_ab);
+		assert(el.F_ab >= 2);
 
 	}
 

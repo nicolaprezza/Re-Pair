@@ -19,7 +19,7 @@ using namespace std;
 
 #endif /* INTERNAL_PACKED_GAMMA_FILE3_HPP_ */
 
-template<uint64_t block_size = 6>
+template<typename itype = uint32_t, uint64_t block_size = 6>
 class packed_gamma_file3{
 
 public:
@@ -173,17 +173,17 @@ public:
 	 * 	- TOTAL SIZE: A log A + G log G + G + 2M log (G/M) + G log M bits
 	 *
 	 */
-	void compress_and_store_2(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & T){
+	void compress_and_store(vector<itype> & A, vector<pair<itype,itype> > & G, vector<itype> & T){
 
 		//store A
 		push_back(A.size());
 		for(auto a : A) push_back(a);
 
 		//store G
-		vector<uint64_t> deltas; //deltas between the pair's maximums
-		vector<uint64_t> starting_values; //starting values of each increasing sequence
-		vector<uint64_t> deltas_starting_points; //starting values of each increasing sequence
-		vector<uint64_t> deltas_minimums; //maximums - minimums
+		vector<itype> deltas; //deltas between the pair's maximums
+		vector<itype> starting_values; //starting values of each increasing sequence
+		vector<itype> deltas_starting_points; //starting values of each increasing sequence
+		vector<itype> deltas_minimums; //maximums - minimums
 		vector<bool> max_first; //the max is the first in the pair. If false, the min is the first in the pair
 
 		uint64_t last_max = 0;
@@ -239,15 +239,17 @@ public:
 
 		uint64_t g = G.size();
 		uint64_t t = T.size();
+		uint64_t log_g = (64 - __builtin_clzll(uint64_t(g)));
+		uint64_t log_gs = (64 - __builtin_clzll(uint64_t(g+A.size())));
 
-		auto bits_per_rule = double(wr)/(g+t);
+		auto bits_per_rule = double(wr - log_gs*t)/g;
 
 		cout << "Compressed file size : " << wr/8 << " Bytes" << endl;
 		cout << "Grammar size : g = " << g << " rules" << endl;
 		cout << "Number of characters in the final text : t = " << t << endl;
-		cout << "log_2 g = " << (64 - __builtin_clzll(uint64_t(g))) << endl;
-		cout << bits_per_rule << " bits / (g+t)" << endl;
-		cout << "Overhead wrt bitsize of stored integers: " << overhead() << "%" << endl;
+		cout << "log_2 g = " << log_g << endl;
+		cout << bits_per_rule << " bits per grammar rule" << endl;
+		cout << "Overhead w.r.t. bitsize of stored integers (prefix encoding): " << overhead() << "%" << endl;
 
 	}
 
@@ -258,7 +260,7 @@ public:
 	 * input arrays are overwritten with content of file
 	 *
 	 */
-	void read_and_decompress_2(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & T){
+	void read_and_decompress(vector<itype> & A, vector<pair<itype,itype> > & G, vector<itype> & T){
 
 		//empty arrays
 		A = {};
@@ -272,10 +274,10 @@ public:
 		for(int i=0;i<A_size;++i) A.push_back(read());
 
 		//store G
-		vector<uint64_t> deltas; //deltas between the pair's maximums
-		vector<uint64_t> starting_values; //starting values of each increasing sequence
-		vector<uint64_t> deltas_starting_points; //starting values of each increasing sequence
-		vector<uint64_t> deltas_minimums; //maximums - minimums
+		vector<itype> deltas; //deltas between the pair's maximums
+		vector<itype> starting_values; //starting values of each increasing sequence
+		vector<itype> deltas_starting_points; //starting values of each increasing sequence
+		vector<itype> deltas_minimums; //maximums - minimums
 		vector<bool> max_first; //the max is the first in the pair. If false, the min is the first in the pair
 
 		uint64_t last_max = 0;
@@ -330,58 +332,6 @@ public:
 
 	}
 
-
-
-	/*
-	 * input: alphabet encoding A (ascii -> integers in {0,...,|A|-1}), grammar G (pairs) and compressed text T
-	 *
-	 * store A, G, T to file without compression
-	 *
-	 * TOTAL SIZE: A log A + 2 G log G
-	 *
-	 */
-	void compress_and_store_1(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & T){
-
-		//store A
-		push_back(A.size());
-		for(auto a : A) push_back(a);
-
-		auto w1 = written_bytes()*8;
-
-		//Store G
-		push_back(G.size());
-		for(auto ab : G){
-
-			push_back(ab.first);
-			push_back(ab.second);
-
-		}
-
-		auto w2 = written_bytes()*8;
-
-		//store T
-		push_back(T.size());
-		for(auto a : T) push_back(a);
-
-		close();
-
-		auto w3 = written_bytes()*8;
-
-		/*
-		 * statistics
-		 */
-
-		uint64_t g = G.size();
-		auto bits_per_rule = double(w2-w1)/g;
-		auto bits_per_text_ch = double(w3-w2)/T.size();
-
-		cout << "Compressed file size : " << w3/8 << " Bytes" << endl;
-		cout << "Grammar size : " << g << " rules" << endl;
-		cout << bits_per_rule << " bits per grammar rule." << endl;
-		cout << bits_per_text_ch << " bits per compressed file character (" << T.size() << " characters)" << endl;
-
-	}
-
 private:
 
 	void flush_to_file(){
@@ -395,9 +345,9 @@ private:
  		//delta-encode bitsizes
 		delta_encode(blocks_bitsizes);
 		//run-length encode the deltas
-		auto R = run_length_encode<uint16_t>(blocks_bitsizes);
-		//most of the runs have length 1, so run-length encode lengts of runs
-		auto R2 = run_length_encode<uint64_t>(R.first);
+		auto R = run_length_encode(blocks_bitsizes);
+		//most of the runs have length 1, so run-length encode lengths of runs
+		auto R2 = run_length_encode(R.first);
 
 		//store R's size to file (number of runs)
 		flush_gamma_integer(R.second.size());
@@ -427,7 +377,7 @@ private:
 	 * encode each delta with function f (so that final values are
 	 * all > 0)
 	 */
-	void delta_encode(vector<uint16_t> & V){
+	void delta_encode(vector<itype> & V){
 
 		int x = 0;//last integer
 
@@ -444,7 +394,7 @@ private:
 	/*
 	 * inverse of delta_encode
 	 */
-	void delta_decode(vector<uint64_t> & V){
+	void delta_decode(vector<itype> & V){
 
 		assert(V.size()>0);
 		assert(f_1(V[0]) > 0);//first delta cannot be negative
@@ -466,14 +416,13 @@ private:
 	 * input: vector of integers
 	 * output: two vectors storing lengths of runs and run heads
 	 */
-	template<typename itype = uint16_t>
-	pair<vector<uint64_t>, vector<uint64_t> > run_length_encode(vector<itype> & V){
+	pair<vector<itype>, vector<itype> > run_length_encode(vector<itype> & V){
 
-		pair<vector<uint64_t>, vector<uint64_t> > R;
-		uint64_t l = 1;
-		uint64_t n = 0;
+		pair<vector<itype>, vector<itype> > R;
+		itype l = 1;
+		itype n = 0;
 
-		for(uint64_t i=0;i<V.size();++i){
+		for(itype i=0;i<V.size();++i){
 
 			if(i == V.size()-1 || V[i] != V[i+1]){
 
@@ -498,11 +447,11 @@ private:
 
 	}
 
-	vector<uint64_t> run_length_decode(vector<uint64_t> & L, vector<uint64_t> & H){
+	vector<itype> run_length_decode(vector<itype> & L, vector<itype> & H){
 
 		assert(L.size() == H.size());
 
-		vector<uint64_t> V;
+		vector<itype> V;
 
 		for(uint64_t i = 0;i<L.size();++i){
 
@@ -593,28 +542,28 @@ private:
 		//number of R's runs
 		uint64_t R_size = read_next_gamma();
 
-		vector<uint64_t> R_heads;
-		for(uint64_t r = 0;r<R_size;++r) R_heads.push_back(read_next_gamma());
+		vector<itype> R_heads;
+		for(itype r = 0;r<R_size;++r) R_heads.push_back(read_next_gamma());
 
 		//number of R2's runs
-		uint64_t R2_size = read_next_gamma();
+		itype R2_size = read_next_gamma();
 
-		vector<uint64_t> R2_lengths;
-		for(uint64_t r = 0;r<R2_size;++r) R2_lengths.push_back(read_next_gamma());
+		vector<itype> R2_lengths;
+		for(itype r = 0;r<R2_size;++r) R2_lengths.push_back(read_next_gamma());
 
-		vector<uint64_t> R2_heads;
-		for(uint64_t r = 0;r<R2_size;++r) R2_heads.push_back(read_next_gamma());
+		vector<itype> R2_heads;
+		for(itype r = 0;r<R2_size;++r) R2_heads.push_back(read_next_gamma());
 
-		vector<uint64_t> R_lengths = run_length_decode(R2_lengths,R2_heads);
+		vector<itype> R_lengths = run_length_decode(R2_lengths,R2_heads);
 
-		vector<uint64_t> V = run_length_decode(R_lengths,R_heads);
+		vector<itype> V = run_length_decode(R_lengths,R_heads);
 
 		assert(V.size() == n_blocks);
 
 		delta_decode(V);
 
 		//now read n integers
-		for(uint64_t i=0;i<n;++i){
+		for(itype i=0;i<n;++i){
 
 			buffer.push_back(read_next_int(V[i/block_size]));
 
@@ -776,14 +725,22 @@ private:
 
 	bool write;
 
+	/*
+	 * counters storing number of bits used for the 3 grammar components
+	 * these counters are filled after calling close()
+	 */
+	uint64_t bits_for_grammar = 0;
+	uint64_t bits_for_text = 0;
+	uint64_t bits_for_alphabet = 0;
+
 	vector<bool> bits;//bits to be flushed to file
 
 	uint64_t idx_in_bits = 0;//index in vector bits
 
-	vector<uint64_t> buffer;
+	vector<itype> buffer;
 	uint64_t idx_in_buf = 0;//current index in buffer while reading
 
-	vector<uint16_t> blocks_bitsizes;//store bitsize of largest integer in each block
+	vector<itype> blocks_bitsizes;//store bitsize of largest integer in each block
 
 
 	bool end_of_file = false;

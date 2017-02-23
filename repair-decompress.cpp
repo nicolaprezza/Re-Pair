@@ -41,6 +41,8 @@
 
 using namespace std;
 
+using itype = uint32_t;
+
 void help(){
 
 	cout << "Decompress a file created with repair-compress." << endl << endl;
@@ -51,9 +53,9 @@ void help(){
 
 }
 
-void decompress(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & Tc, ofstream & ofs){
+void decompress(vector<itype> & A, vector<pair<itype,itype> > & G, vector<itype> & Tc, ofstream & ofs){
 
-	std::stack<uint64_t> S;
+	std::stack<itype> S;
 
 	string buffer;
 	int buf_size = 1000000;//1 MB buffer
@@ -61,13 +63,13 @@ void decompress(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vect
 	/*
 	 * decompress Tc symbols one by one
 	 */
-	for(uint64_t i = 0;i<Tc.size();++i){
+	for(itype i = 0;i<Tc.size();++i){
 
 		S.push(Tc[i]);
 
 		while(!S.empty()){
 
-			uint64_t X = S.top(); //get symbol
+			itype X = S.top(); //get symbol
 			S.pop();//remove top
 
 			if(X<A.size()){
@@ -129,12 +131,12 @@ int main(int argc,char** argv) {
 	//auto pgf = packed_gamma_file2<>(in, false);
 	//auto pgf = packed_gamma_file<>(in, false);
 
-	vector<uint64_t> A;
-	vector<pair<uint64_t,uint64_t> > G;
-	vector<uint64_t> Tc;
+	vector<itype> A;
+	vector<pair<itype,itype> > G;
+	vector<itype> Tc;
 
 	//read and decompress grammar
-	pgf.read_and_decompress_2(A,G,Tc);
+	pgf.read_and_decompress(A,G,Tc);
 
 	ofstream ofs(out);
 

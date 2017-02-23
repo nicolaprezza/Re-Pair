@@ -37,8 +37,6 @@
 #include "internal/hf_queue.hpp"
 #include "internal/skippable_text.hpp"
 #include "internal/text_positions.hpp"
-#include "internal/packed_gamma_file.hpp"
-#include "internal/packed_gamma_file2.hpp"
 #include "internal/packed_gamma_file3.hpp"
 
 using namespace std;
@@ -55,9 +53,7 @@ void help(){
 
 //high/low frequency text type
 using text_t = skippable_text32_t;
-
 using TP_t = text_positions32_t;
-
 using hf_q_t = hf_queue32_t;
 using lf_q_t = lf_queue32_t;
 using itype = uint32_t;
@@ -74,13 +70,12 @@ using cpair = hf_q_t::cpair;
 
 //next free dictionary symbol
 itype X=0;
-
 itype last_freq = 0;
 itype n_distinct_freqs = 0;
 
-vector<uint64_t> A; //alphabet (mapping int->ascii)
-vector<pair<uint64_t, uint64_t> > G; //grammar
-vector<uint64_t> T;// compressed text
+vector<itype> A; //alphabet (mapping int->ascii)
+vector<pair<itype, itype> > G; //grammar
+vector<itype> T_vec;// compressed text
 
 /*
  * Given (empty) queue, text positions, text, and minimum frequency: insert in Q all pairs with frequency at least min_freq.
@@ -164,6 +159,7 @@ void new_high_frequency_queue(hf_q_t & Q, TP_t & TP, text_t & T, uint64_t min_fr
 
 }
 
+
 /*
  * synchronize queue in range corresponding to pair AB.
  */
@@ -245,6 +241,7 @@ void synchronize(queue_t & Q, TP_t & TP, text_t & T, cpair AB){
 
 }
 
+
 /*
  * look at F_ab and L_ab. Cases:
  *
@@ -292,7 +289,7 @@ uint64_t wd(uint64_t x){
 }
 
 
-const pair<uint64_t,uint64_t> nullpair = {~uint64_t(0),~uint64_t(0)};
+const pair<itype,itype> nullpair = {~itype(0),~itype(0)};
 
 
 /*
@@ -419,9 +416,9 @@ uint64_t substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 }
 
 
-void compute_repair(string in, string out){
+void compute_repair(string in){
 
-	packed_gamma_file3<> out_file(out);
+
 	//packed_gamma_file2<> out_file(out);
 	//packed_gamma_file2<> out_file(out);
 
@@ -652,7 +649,7 @@ void compute_repair(string in, string out){
 
 	cout << "Replacing low-frequency pairs ... " << endl;
 
-	pair<uint64_t,uint64_t> replaced = {0,0};
+	pair<itype,itype> replaced = {0,0};
 
 	last_perc = -1;
 	uint64_t tl = T.number_of_non_blank_characters();
@@ -677,15 +674,11 @@ void compute_repair(string in, string out){
 
 	cout << "Compressing grammar and storing it to file ... " << endl << endl;
 
-	vector<uint64_t> T_vec;
 	for(itype i=0;i<T.size();++i){
 
 		if(not T.is_blank(i)) T_vec.push_back(T[i]);
 
 	}
-
-	//out_file.compress_and_store_1(A,G,T_vec);//no compression
-	out_file.compress_and_store_2(A,G,T_vec);//delta compression
 
 }
 
@@ -714,7 +707,10 @@ int main(int argc,char** argv) {
 	cout << "Compressing file " << in << endl;
 	cout << "Output will be saved to file " << out << endl<<endl;
 
-	compute_repair(in, out);
+	compute_repair(in);
+
+	packed_gamma_file3<> out_file(out);
+	out_file.compress_and_store(A,G,T_vec);//delta compression
 
 }
 
