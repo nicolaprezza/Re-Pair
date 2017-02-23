@@ -1,5 +1,5 @@
 /*
- * packed_gamma_file.hpp
+ * packed_gamma_file3.hpp
  *
  *  Created on: Feb 15, 2017
  *      Author: nico
@@ -8,8 +8,8 @@
  *
  */
 
-#ifndef INTERNAL_PACKED_GAMMA_FILE_HPP_
-#define INTERNAL_PACKED_GAMMA_FILE_HPP_
+#ifndef INTERNAL_PACKED_GAMMA_FILE3_HPP_
+#define INTERNAL_PACKED_GAMMA_FILE3_HPP_
 
 #include <cassert>
 #include <vector>
@@ -17,10 +17,10 @@
 
 using namespace std;
 
-#endif /* INTERNAL_PACKED_GAMMA_FILE_HPP_ */
+#endif /* INTERNAL_PACKED_GAMMA_FILE3_HPP_ */
 
-template<uint64_t block_size = 3>
-class packed_gamma_file{
+template<uint64_t block_size = 6>
+class packed_gamma_file3{
 
 public:
 
@@ -30,7 +30,7 @@ public:
 	 * input: file name and flag indicating whether file is used in write mode (true) or read mode (false)
 	 *
 	 */
-	packed_gamma_file(string filename, bool write = true){
+	packed_gamma_file3(string filename, bool write = true){
 
 		this->write = write;
 
@@ -41,6 +41,10 @@ public:
 		}else{
 
 			in = ifstream(filename, std::ios::binary);
+
+			//read file into the bitvector bits
+			fill_bits();
+			fill_buffer();
 
 		}
 
@@ -56,17 +60,24 @@ public:
 
 		assert(write);
 
-		if(buffer.size() == block_size){
+		buffer.push_back(x);
 
-			//buffer full: flush to file
-			flush_buffer();
-			assert(buffer.size() == 0);
+		if(buffer.size()%block_size == 0){
+
+			uint8_t max_bitsize = 0;
+
+			for(uint64_t i=buffer.size()-block_size;i<buffer.size();++i){
+
+				max_bitsize = std::max(max_bitsize,wd(buffer[i]));
+
+			}
+
+			blocks_bitsizes.push_back(max_bitsize);
 
 		}
 
-		buffer.push_back(x);
-
 		lower_bound_bitsize += wd(x);
+
 
 	}
 
@@ -80,22 +91,7 @@ public:
 
 		if(eof()) return 0;
 
-		assert(idx_in_buf <= buffer.size());
-
-		if(idx_in_buf == buffer.size()){
-
-			//if there are still integers to be read from the file, fill buffer
-			fill_buffer();
-
-		}
-
-		//here buffer contains some integers
-		assert(idx_in_buf < buffer.size());
-
-		//return next integer and advance counter in buffer
-		auto x = buffer[idx_in_buf++];
-
-		return x;
+		return buffer[idx_in_buf++];
 
 	}
 
@@ -106,42 +102,34 @@ public:
 
 		assert(not write);
 
-		return end_of_file and idx_in_buf >= buffer.size();
+		return idx_in_buf >= buffer.size();
 
 	}
 
 	/*
-	 * close file: must be called when there are no more integers to be written
+	 * close file: must be called when there are no more integers to be written.
+	 * this function compresses the content of buffer and saves it to file
 	 */
 	void close(){
 
 		assert(write);
-		assert(buffer.size()<=block_size);
 
-		//remaining integers that need to be written (possibly 0)
-		uint64_t remaining = buffer.size();
+		//in this case we did not compute last bitsize
+		if(buffer.size()%block_size != 0){
 
-		uint64_t END = 65;//this denotes the end of file (larger than bitsize(uint64_t))
+			uint8_t max_bitsize = 0;
 
-		//push back EOF code
-		for(bool b : gamma(END)) bits.push_back(b);
+			for(uint64_t i=(buffer.size()/block_size)*block_size;i<buffer.size();++i){
 
-		//push back 64 bits with size of buffer
-		for(bool b : binary(remaining,64)) bits.push_back(b);
+				max_bitsize = std::max(max_bitsize,wd(buffer[i]));
 
-		//push back remaining integers in buffer (using 64 bits each)
-		for(uint64_t x : buffer)
-			for(bool b : binary(x,64))
-				bits.push_back(b);
+			}
 
-		//pad bits with 0s until we reach a multiple of 8
-		//in this way, we are sure that flush_bits() will flush
-		//to file all bits
-		while(bits.size()%8 != 0) bits.push_back(false);
+			blocks_bitsizes.push_back(max_bitsize);
 
-		flush_bits();
+		}
 
-		assert(bits.size()==0);
+		flush_to_file();
 
 		out.close();
 
@@ -230,41 +218,36 @@ public:
 
 		}
 
-		auto w1 = written_bytes()*8;
 		push_back(deltas.size()); for(auto x:deltas) push_back(x);
 		push_back(starting_values.size());for(auto x:starting_values) push_back(x);
 		push_back(deltas_starting_points.size());for(auto x:deltas_starting_points) push_back(x);
 
-		auto w2 = written_bytes()*8;
 		push_back(deltas_minimums.size());for(auto x:deltas_minimums) push_back(x);
 		push_back(max_first.size());for(auto x:max_first) push_back(x);
 
-		auto w3 = written_bytes()*8;
 		//store T
 		push_back(T.size());
 		for(auto a : T) push_back(a);
 
 		close();
 
-		auto w4 = written_bytes()*8;
+		auto wr = written_bytes()*8;
 
 		/*
 		 * statistics
 		 */
 
 		uint64_t g = G.size();
-		auto bits_per_rule = double(w3-w1)/g;
-		auto bits_per_first_rule = double(w2-w1)/g;
-		auto bits_per_second_rule = double(w3-w2)/g;
-		auto bits_per_text_ch = double(w4-w3)/T.size();
+		uint64_t t = T.size();
 
-		cout << "Compressed file size : " << w4/8 << " Bytes" << endl;
+		auto bits_per_rule = double(wr)/(g+t);
+
+		cout << "Compressed file size : " << wr/8 << " Bytes" << endl;
 		cout << "Grammar size : g = " << g << " rules" << endl;
+		cout << "Number of characters in the final text : t = " << t << endl;
 		cout << "log_2 g = " << (64 - __builtin_clzll(uint64_t(g))) << endl;
-		cout << bits_per_text_ch << " bits per compressed file character (" << T.size() << " characters)" << endl;
-		cout << bits_per_rule << " bits per grammar rule, distributed in:" << endl;
-		cout << " " << bits_per_first_rule << " bits per sorted components (M = " << starting_values.size() << " increasing subsequences)" << endl;
-		cout << " " << bits_per_second_rule << " bits per unsorted components" << endl;
+		cout << bits_per_rule << " bits / (g+t)" << endl;
+		cout << "Overhead wrt bitsize of stored integers: " << overhead() << "%" << endl;
 
 	}
 
@@ -401,35 +384,137 @@ public:
 
 private:
 
-	void fill_buffer(){
+	void flush_to_file(){
 
-		assert(not end_of_file);
+		//first, write number of integers in the file
+		flush_gamma_integer(buffer.size());
 
-		//empty buffer
-		buffer = {};
+		auto bitsizes = blocks_bitsizes;//store copy
 
-		uint64_t w = read_next_gamma();
+		assert(blocks_bitsizes.size()==(buffer.size()/block_size) + (buffer.size()%block_size != 0));
+ 		//delta-encode bitsizes
+		delta_encode(blocks_bitsizes);
+		//run-length encode the deltas
+		auto R = run_length_encode<uint16_t>(blocks_bitsizes);
+		//most of the runs have length 1, so run-length encode lengts of runs
+		auto R2 = run_length_encode<uint64_t>(R.first);
 
-		//65 indicates EOF (i.e. last buffer)
-		assert(w<=65);
+		//store R's size to file (number of runs)
+		flush_gamma_integer(R.second.size());
 
-		if(w==65){
+		//store R run heads to file
+		for(auto x:R.second) flush_gamma_integer(x);
 
-			//end of file reached: this is the last buffer we fill
-			end_of_file = true;
+		//store R2's size to file (number of runs)
+		flush_gamma_integer(R2.second.size());
 
-			uint64_t bufsize = read_next_int(64);
+		//store R2 run lengths to file
+		for(auto x:R2.first) flush_gamma_integer(x);
 
-			for(uint64_t i = 0;i<bufsize;++i) buffer.push_back(read_next_int(64));
+		//store R2 run heads to file
+		for(auto x:R2.second) flush_gamma_integer(x);
 
-		}else{
+		//flush all integers using bitsize of their block
+		for(uint64_t i=0;i<buffer.size();++i) flush_binary_integer(buffer[i],bitsizes[i/block_size]);
 
-			//w is the bitsize of following block_size integers
-			for(uint64_t i = 0;i<block_size;++i) buffer.push_back(read_next_int(w));
+		flush_bits();
+
+	}
+
+
+	/*
+	 * replace content of V with the deltas of its consecutive elements,
+	 * encode each delta with function f (so that final values are
+	 * all > 0)
+	 */
+	void delta_encode(vector<uint16_t> & V){
+
+		int x = 0;//last integer
+
+		for(uint64_t i=0;i<V.size();++i){
+
+			int temp = V[i];
+			V[i] = f(int(V[i])-x);
+			x = temp;
 
 		}
 
-		idx_in_buf = 0;
+	}
+
+	/*
+	 * inverse of delta_encode
+	 */
+	void delta_decode(vector<uint64_t> & V){
+
+		assert(V.size()>0);
+		assert(f_1(V[0]) > 0);//first delta cannot be negative
+
+		V[0] = f_1(V[0]);
+
+		for(uint64_t i=1;i<V.size();++i){
+
+			//result cannot be <= 0
+			assert(int(V[i-1]) + f_1(V[i])>0);
+
+			V[i] = int(V[i-1]) + f_1(V[i]);
+
+		}
+
+	}
+
+	/*
+	 * input: vector of integers
+	 * output: two vectors storing lengths of runs and run heads
+	 */
+	template<typename itype = uint16_t>
+	pair<vector<uint64_t>, vector<uint64_t> > run_length_encode(vector<itype> & V){
+
+		pair<vector<uint64_t>, vector<uint64_t> > R;
+		uint64_t l = 1;
+		uint64_t n = 0;
+
+		for(uint64_t i=0;i<V.size();++i){
+
+			if(i == V.size()-1 || V[i] != V[i+1]){
+
+				R.first.push_back(l);
+				R.second.push_back(V[i]);
+
+				n+=l;
+
+				l = 1;
+
+			}else{
+
+				++l;
+
+			}
+
+		}
+
+		assert(n == V.size());
+
+		return R;
+
+	}
+
+	vector<uint64_t> run_length_decode(vector<uint64_t> & L, vector<uint64_t> & H){
+
+		assert(L.size() == H.size());
+
+		vector<uint64_t> V;
+
+		for(uint64_t i = 0;i<L.size();++i){
+
+			for(uint64_t j=0;j<L[i];++j){
+
+				V.push_back(H[i]);
+
+			}
+
+		}
+
+		return V;
 
 	}
 
@@ -439,8 +524,6 @@ private:
 	uint64_t read_next_gamma(){
 
 		//if next bits are not a full gamma code, read more bits from file
-		if(not is_next_code_complete()) fill_bits();
-
 		assert(is_next_code_complete());
 
 		auto len = next_gamma_length();
@@ -459,7 +542,7 @@ private:
 	 */
 	uint64_t read_next_int(uint64_t w){
 
-		if(idx_in_bits + w > bits.size()) fill_bits();
+		assert(idx_in_bits + w <= bits.size());
 
 		uint64_t x = 0;
 
@@ -474,27 +557,15 @@ private:
 	}
 
 	/*
-	 * read at most bytes Bytes from file and push back content in vector bits
+	 * read all bytes from file and store their bits in bitvector bits
 	 */
-	void fill_bits(uint64_t bytes = 256){
+	void fill_bits(){
 
 		//first of all, delete from bits all bits that have already been read
 
-		{
+		assert(idx_in_bits==0);
 
-			vector<bool> bits1;
-
-			for(uint64_t i=idx_in_bits;i<bits.size();++i) bits1.push_back(bits[i]);
-
-			bits = bits1;
-
-			idx_in_bits = 0;
-
-		}
-
-		uint64_t i = 0;//read bytes
-
-		while(i<bytes and not in.eof()){
+		while(not in.eof()){
 
 			uint8_t x;
 			in.read((char*)&x,1);
@@ -502,7 +573,50 @@ private:
 			//push back bits of x in vector bits
 			for(int j=0;j<8;++j) bits.push_back( (x>>(7-j)) & uint8_t(1) );
 
-			++i;
+		}
+
+	}
+
+	/*
+	 * decode the content of bits and store the integers to buffer
+	 */
+	void fill_buffer(){
+
+		assert(buffer.size()==0);
+
+		//number of integers stored in the file
+		uint64_t n = read_next_gamma();
+
+		//number of stored bit-sizes
+		uint64_t n_blocks = (n/block_size) + (n%block_size!=0);
+
+		//number of R's runs
+		uint64_t R_size = read_next_gamma();
+
+		vector<uint64_t> R_heads;
+		for(uint64_t r = 0;r<R_size;++r) R_heads.push_back(read_next_gamma());
+
+		//number of R2's runs
+		uint64_t R2_size = read_next_gamma();
+
+		vector<uint64_t> R2_lengths;
+		for(uint64_t r = 0;r<R2_size;++r) R2_lengths.push_back(read_next_gamma());
+
+		vector<uint64_t> R2_heads;
+		for(uint64_t r = 0;r<R2_size;++r) R2_heads.push_back(read_next_gamma());
+
+		vector<uint64_t> R_lengths = run_length_decode(R2_lengths,R2_heads);
+
+		vector<uint64_t> V = run_length_decode(R_lengths,R_heads);
+
+		assert(V.size() == n_blocks);
+
+		delta_decode(V);
+
+		//now read n integers
+		for(uint64_t i=0;i<n;++i){
+
+			buffer.push_back(read_next_int(V[i/block_size]));
 
 		}
 
@@ -533,36 +647,30 @@ private:
 
 	}
 
-	void flush_buffer(){
+	/*
+	 * flush to bitvector bits the bit-representation of gamma(x)
+	 */
+	void flush_gamma_integer(uint64_t x){
 
-		assert(buffer.size() == block_size);
-
-		uint64_t w = 0;
-
-		//detect max width of integers in buffer
-		for(auto x:buffer) w = std::max(w,wd(x));
-
-		cout << w << " ";
-
-		assert(w>0);
-
-		//push back gamma code of w
-		for(bool b : gamma(w)) bits.push_back(b);
-
-		//push back w-bits codes of integers in buffer
-		for(auto x:buffer)
-			for(auto b:binary(x,w))
-				bits.push_back(b);
-
-		flush_bits();
-
-		//empty buffer
-		buffer = vector<uint64_t>();
+		for(auto b:gamma(x)) bits.push_back(b);
 
 	}
 
-	//flush bits to file (bits.size()%8 bits remain in the array after this call)
+	/*
+	 * flush to bitvector bits the bit-representation of gamma(x)
+	 */
+	void flush_binary_integer(uint64_t x, uint64_t w = 0){
+
+		for(auto b:binary(x,w)) bits.push_back(b);
+
+	}
+
+
+	//flush bits to file. A padding of 0s is added so that the size is a multiple of 8
 	void flush_bits(){
+
+		//add padding
+		while(bits.size()%8!=0) bits.push_back(0);
 
 		int n = bits.size();
 		int i = 0;
@@ -585,19 +693,12 @@ private:
 
 		}
 
-		auto bits1 = vector<bool>();
-
-		//move remainder at the beginning of bits
-		for(int i = (n/8)*8; i<n;++i) bits1.push_back(bits[i]);
-
-		bits = bits1;
-
 	}
 
 	/*
 	 * bit-width of x
 	 */
-	uint64_t wd(uint64_t x){
+	uint8_t wd(uint64_t x){
 
 		auto w = 64 - __builtin_clzll(uint64_t(x));
 
@@ -643,6 +744,36 @@ private:
 
 	}
 
+	/*
+	 * maps small signed integers to small nonzero unsigned integers:
+	 *
+	 * 0  -> 1
+	 * -1 -> 2
+	 * 1  -> 3
+	 * -2 -> 4
+	 * 2  -> 5
+	 * -3 -> 6
+	 * 3  -> 7
+	 *
+	 * ...
+	 *
+	 */
+	uint16_t f(int x){
+
+		return x>=0 ? 2*x+1 : (-x)*2;
+
+	}
+
+	/*
+	 * inverse of function f
+	 */
+	int f_1(uint16_t x){
+
+		return x%2 == 1 ? (x-1)/2 : -int(x)/2;
+
+	}
+
+
 	bool write;
 
 	vector<bool> bits;//bits to be flushed to file
@@ -651,6 +782,9 @@ private:
 
 	vector<uint64_t> buffer;
 	uint64_t idx_in_buf = 0;//current index in buffer while reading
+
+	vector<uint16_t> blocks_bitsizes;//store bitsize of largest integer in each block
+
 
 	bool end_of_file = false;
 

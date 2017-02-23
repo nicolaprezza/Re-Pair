@@ -36,6 +36,8 @@
 #include <stack>
 
 #include "internal/packed_gamma_file.hpp"
+#include "internal/packed_gamma_file2.hpp"
+#include "internal/packed_gamma_file3.hpp"
 
 using namespace std;
 
@@ -123,7 +125,9 @@ int main(int argc,char** argv) {
 	cout << "Decompressing archive " << in << endl;
 	cout << "Output will be saved to " << out << endl;
 
-	auto pgf = packed_gamma_file<>(in, false);
+	auto pgf = packed_gamma_file3<>(in, false);
+	//auto pgf = packed_gamma_file2<>(in, false);
+	//auto pgf = packed_gamma_file<>(in, false);
 
 	vector<uint64_t> A;
 	vector<pair<uint64_t,uint64_t> > G;

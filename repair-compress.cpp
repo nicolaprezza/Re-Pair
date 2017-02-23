@@ -38,6 +38,8 @@
 #include "internal/skippable_text.hpp"
 #include "internal/text_positions.hpp"
 #include "internal/packed_gamma_file.hpp"
+#include "internal/packed_gamma_file2.hpp"
+#include "internal/packed_gamma_file3.hpp"
 
 using namespace std;
 
@@ -419,7 +421,9 @@ uint64_t substitution_round(queue_t & Q, TP_t & TP, text_t & T){
 
 void compute_repair(string in, string out){
 
-	packed_gamma_file<> out_file(out);
+	packed_gamma_file3<> out_file(out);
+	//packed_gamma_file2<> out_file(out);
+	//packed_gamma_file2<> out_file(out);
 
 	/*
 	 * tradeoff between low-frequency and high-freq phase:

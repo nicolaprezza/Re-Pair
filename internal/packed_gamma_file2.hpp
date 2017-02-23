@@ -1,5 +1,5 @@
 /*
- * packed_gamma_file.hpp
+ * packed_gamma_file2.hpp
  *
  *  Created on: Feb 15, 2017
  *      Author: nico
@@ -8,8 +8,8 @@
  *
  */
 
-#ifndef INTERNAL_PACKED_GAMMA_FILE_HPP_
-#define INTERNAL_PACKED_GAMMA_FILE_HPP_
+#ifndef INTERNAL_PACKED_GAMMA_FILE2_HPP_
+#define INTERNAL_PACKED_GAMMA_FILE2_HPP_
 
 #include <cassert>
 #include <vector>
@@ -17,10 +17,10 @@
 
 using namespace std;
 
-#endif /* INTERNAL_PACKED_GAMMA_FILE_HPP_ */
+#endif /* INTERNAL_PACKED_GAMMA_FILE2_HPP_ */
 
-template<uint64_t block_size = 3>
-class packed_gamma_file{
+template<uint64_t min_block_size = 10, uint64_t max_block_size = 10000>
+class packed_gamma_file2{
 
 public:
 
@@ -30,7 +30,7 @@ public:
 	 * input: file name and flag indicating whether file is used in write mode (true) or read mode (false)
 	 *
 	 */
-	packed_gamma_file(string filename, bool write = true){
+	packed_gamma_file2(string filename, bool write = true){
 
 		this->write = write;
 
@@ -51,22 +51,28 @@ public:
 
 	/*
 	 * append integer x in packed form to the file
+	 * can specify width of the integer
 	 */
-	void push_back(uint64_t x){
+	void push_back(uint64_t x,uint64_t w = 0){
 
 		assert(write);
 
-		if(buffer.size() == block_size){
+		if(w==0) w = wd(x);
+
+		if(buffer.size() == max_block_size or (buffer.size() >= min_block_size and w != bitsize_buffer)){
 
 			//buffer full: flush to file
 			flush_buffer();
 			assert(buffer.size() == 0);
+			bitsize_buffer = 0;
 
 		}
 
 		buffer.push_back(x);
 
-		lower_bound_bitsize += wd(x);
+		if(buffer.size() <= min_block_size) bitsize_buffer = std::max(w,bitsize_buffer);
+
+		lower_bound_bitsize += w;
 
 	}
 
@@ -116,23 +122,30 @@ public:
 	void close(){
 
 		assert(write);
-		assert(buffer.size()<=block_size);
+
+		cout << bitsize_buffer << " ";
 
 		//remaining integers that need to be written (possibly 0)
 		uint64_t remaining = buffer.size();
 
-		uint64_t END = 65;//this denotes the end of file (larger than bitsize(uint64_t))
-
 		//push back EOF code
-		for(bool b : gamma(END)) bits.push_back(b);
+		for(bool b : gamma(66)) bits.push_back(b);
 
-		//push back 64 bits with size of buffer
-		for(bool b : binary(remaining,64)) bits.push_back(b);
+		//push back size of buffer
+		for(bool b : gamma(remaining)) bits.push_back(b);
 
-		//push back remaining integers in buffer (using 64 bits each)
-		for(uint64_t x : buffer)
-			for(bool b : binary(x,64))
+		//push back bitsize of integers in buffer
+		for(bool b : gamma(bitsize_buffer)) bits.push_back(b);
+
+		//push back remaining integers in buffer (using bitsize_buffer bits each)
+		for(uint64_t x : buffer){
+
+			assert(wd(x)<=bitsize_buffer);
+
+			for(bool b : binary(x,bitsize_buffer))
 				bits.push_back(b);
+
+		}
 
 		//pad bits with 0s until we reach a multiple of 8
 		//in this way, we are sure that flush_bits() will flush
@@ -187,9 +200,19 @@ public:
 	 */
 	void compress_and_store_2(vector<uint64_t> & A, vector<pair<uint64_t,uint64_t> > & G, vector<uint64_t> & T){
 
+		uint64_t g = G.size();
+		uint64_t s = A.size();
+		uint64_t t = T.size();
+
+		uint64_t log_gs = wd(g+s);//compressed text characters cannot take more than this number of bits
+
+		cout << "\n\nSTORING ALPHABET " << endl << endl;
+
 		//store A
 		push_back(A.size());
 		for(auto a : A) push_back(a);
+
+		cout << "\n\nSTORING GRAMMAR " << endl << endl;
 
 		//store G
 		vector<uint64_t> deltas; //deltas between the pair's maximums
@@ -237,12 +260,18 @@ public:
 
 		auto w2 = written_bytes()*8;
 		push_back(deltas_minimums.size());for(auto x:deltas_minimums) push_back(x);
-		push_back(max_first.size());for(auto x:max_first) push_back(x);
+		push_back(max_first.size());for(auto x:max_first) push_back(x);//this is a bitvector: use just 1 bit per integer
 
 		auto w3 = written_bytes()*8;
+
+
+
+		cout << "\n\nSTORING TEXT " << endl << endl;
+
+
 		//store T
 		push_back(T.size());
-		for(auto a : T) push_back(a);
+		for(auto a : T)	push_back(a,log_gs);
 
 		close();
 
@@ -252,19 +281,28 @@ public:
 		 * statistics
 		 */
 
-		uint64_t g = G.size();
-		auto bits_per_rule = double(w3-w1)/g;
+
+		auto bits_per_rule = double(w3)/g;
 		auto bits_per_first_rule = double(w2-w1)/g;
 		auto bits_per_second_rule = double(w3-w2)/g;
 		auto bits_per_text_ch = double(w4-w3)/T.size();
+		auto bits_per_alphabet_ch = double(w1)/T.size();
 
-		cout << "Compressed file size : " << w4/8 << " Bytes" << endl;
-		cout << "Grammar size : g = " << g << " rules" << endl;
-		cout << "log_2 g = " << (64 - __builtin_clzll(uint64_t(g))) << endl;
-		cout << bits_per_text_ch << " bits per compressed file character (" << T.size() << " characters)" << endl;
-		cout << bits_per_rule << " bits per grammar rule, distributed in:" << endl;
+		cout << "Compressed file size : " << w4/8 << " Bytes" << endl << endl;
+		cout << "Grammar size : |G| = g = " << g << " rules" << endl;
+		cout << "Alphabet size : |S| = s = " << s << " characters" << endl;
+		cout << "Final text size: |T| = t = " << T.size() << " characters" << endl << endl;
+
+		cout << "log_2 g = " << wd(g) << endl;
+		cout << "log_2(g+s) = " << log_gs << endl << endl;
+
+		cout << bits_per_text_ch << " bits per final file size (T only)" << endl;
+		cout << bits_per_rule << " bits per grammar rule (S+G only), distributed in:" << endl;
 		cout << " " << bits_per_first_rule << " bits per sorted components (M = " << starting_values.size() << " increasing subsequences)" << endl;
 		cout << " " << bits_per_second_rule << " bits per unsorted components" << endl;
+		cout << " " << bits_per_alphabet_ch << " bits per alphabet character" << endl;
+		cout << double(w4)/(g+t+s) << " bits/obj, where obj = g+t+s" << endl;
+
 
 	}
 
@@ -408,26 +446,28 @@ private:
 		//empty buffer
 		buffer = {};
 
-		uint64_t w = read_next_gamma();
+		uint64_t CODE = read_next_gamma();
+		uint64_t buf_size = min_block_size;
+		uint64_t width = CODE;
 
-		//65 indicates EOF (i.e. last buffer)
-		assert(w<=65);
+		if(CODE == 65){
 
-		if(w==65){
+			//buffer's size is min_block_size + next integer
+			buf_size = min_block_size + read_next_gamma();
+			width = read_next_gamma();
 
-			//end of file reached: this is the last buffer we fill
+		}else if(CODE == 66){
+
+			//buffer's size is next integer
+			buf_size = read_next_gamma();
+			width = read_next_gamma();
+
 			end_of_file = true;
 
-			uint64_t bufsize = read_next_int(64);
-
-			for(uint64_t i = 0;i<bufsize;++i) buffer.push_back(read_next_int(64));
-
-		}else{
-
-			//w is the bitsize of following block_size integers
-			for(uint64_t i = 0;i<block_size;++i) buffer.push_back(read_next_int(w));
-
 		}
+
+		//read integers from file
+		for(uint64_t i = 0;i<buf_size;++i) buffer.push_back(read_next_int(width));
 
 		idx_in_buf = 0;
 
@@ -535,29 +575,43 @@ private:
 
 	void flush_buffer(){
 
-		assert(buffer.size() == block_size);
+		assert(buffer.size() >= min_block_size);
+		assert(buffer.size() <= max_block_size);
+		assert(bitsize_buffer > 0);
 
-		uint64_t w = 0;
+		cout << bitsize_buffer << " ";
 
-		//detect max width of integers in buffer
-		for(auto x:buffer) w = std::max(w,wd(x));
+		if(buffer.size() == min_block_size){
 
-		cout << w << " ";
+			//first case: buffer has the minimum size. don't need to write anything
 
-		assert(w>0);
+		}else{
 
-		//push back gamma code of w
-		for(bool b : gamma(w)) bits.push_back(b);
+			//second case: buffer has more than the minimum size. Push back special code 65
+			for(bool b : gamma(65)) bits.push_back(b);
+			//now push back size of the buffer - min_block_size
+			assert(buffer.size()>min_block_size);
+			for(bool b : gamma(buffer.size()-min_block_size)) bits.push_back(b);
 
-		//push back w-bits codes of integers in buffer
-		for(auto x:buffer)
-			for(auto b:binary(x,w))
+		}
+
+		//push back gamma code of width of integers in buffer
+		for(bool b : gamma(bitsize_buffer)) bits.push_back(b);
+
+		//push back bitsize_buffer-bits codes of integers in buffer
+		for(auto x:buffer){
+
+			assert(wd(x) <= bitsize_buffer);
+
+			for(auto b:binary(x,bitsize_buffer))
 				bits.push_back(b);
+
+		}
 
 		flush_bits();
 
 		//empty buffer
-		buffer = vector<uint64_t>();
+		buffer = {};
 
 	}
 
@@ -648,6 +702,8 @@ private:
 	vector<bool> bits;//bits to be flushed to file
 
 	uint64_t idx_in_bits = 0;//index in vector bits
+
+	uint64_t bitsize_buffer = 0;//max bitsize of integers in the buffer
 
 	vector<uint64_t> buffer;
 	uint64_t idx_in_buf = 0;//current index in buffer while reading
