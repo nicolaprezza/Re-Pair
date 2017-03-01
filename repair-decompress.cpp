@@ -135,11 +135,12 @@ int main(int argc,char** argv) {
 	vector<pair<itype,itype> > G;
 	vector<itype> Tc;
 
-	//read and decompress grammar
+	//read and decompress grammar (the DAG)
 	pgf.read_and_decompress(A,G,Tc);
 
 	ofstream ofs(out);
 
+	//expand the grammar to file
 	decompress(A,G,Tc,ofs);
 
 	ofs.close();

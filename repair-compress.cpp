@@ -476,15 +476,13 @@ void compute_repair(string in){
 
 	itype width = 64 - __builtin_clzll(uint64_t(n));
 
-	cout << "n log n = " << (n*width)/8 << " Bytes"  << endl;
-
 	//largest possible high-frequency dictionary symbol
 	//at most max_d <= n high-freq dictionary symbols can be created; given that min. freq of
 	//a high-freq dictionary symbol is f=min_high_frequency and that every new dictionary symbol
 	//introduces a blank in the text, we have the inequality max_d * f <= n  <=> max_d <= n/f
 	itype max_d = 256+n/min_high_frequency;
 
-	cout << "Max high-frequency dictionary symbol = " << max_d << endl << endl;
+	//cout << "Max high-frequency dictionary symbol = " << max_d << endl << endl;
 
 	//initialize text and text positions
 	text_t T(n);
@@ -710,7 +708,8 @@ int main(int argc,char** argv) {
 	compute_repair(in);
 
 	packed_gamma_file3<> out_file(out);
-	out_file.compress_and_store(A,G,T_vec);//delta compression
+	//compress the grammar with Elias' gamma-encoding and store it to file
+	out_file.compress_and_store(A,G,T_vec);
 
 }
 
