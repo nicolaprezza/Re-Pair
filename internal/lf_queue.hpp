@@ -221,6 +221,9 @@ public:
 		assert(F_size[el.F_ab]>0);
 		F_size[el.F_ab]--;
 
+		assert(current_size>0);
+		current_size--;
+
 		//if more than half of B's entries are empty, compact B.
 		if(F_size[el.F_ab] < F[el.F_ab].size()/2)
 			compact_ll(el.F_ab);
@@ -282,6 +285,9 @@ public:
 		F_size[F_ab]++;
 		H.insert({el.ab,{el.P_ab,el.L_ab,F_ab}}); //insert ab in the hash
 
+		current_size++;
+		peak_size = current_size > peak_size ? current_size : peak_size;
+
 		assert(F_ab >= 2);
 		assert(at(el.ab).F_ab == F_ab);
 
@@ -319,6 +325,13 @@ public:
 		return NULLPAIR;
 	}
 
+	/*
+	 * return max number of stored pairs at any point in time
+	 */
+	itype peak(){
+		return peak_size;
+	}
+
 private:
 
 	/*
@@ -349,6 +362,9 @@ private:
 
 	itype max_size = 0;
 	itype max_freq = 0;
+
+	itype current_size=0;
+	itype peak_size = 0;
 
 	itype MAX = 0;
 

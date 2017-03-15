@@ -560,6 +560,7 @@ void compute_repair(string in){
 	}
 
 	cout << "done. " << endl;
+	cout << "Peak queue size = " << HFQ.peak() << " (" << double(HFQ.peak())/double(n) << "n)" << endl;
 
 	cout << "\nSTEP 2. LOW FREQUENCY PAIRS" << endl << endl;
 
@@ -669,6 +670,7 @@ void compute_repair(string in){
 	}
 
 	cout << "done. " << endl;
+	cout << "Peak queue size = " << LFQ.peak() << " (" << double(LFQ.peak())/double(n) << "n)" << endl;
 
 	cout << "Compressing grammar and storing it to file ... " << endl << endl;
 

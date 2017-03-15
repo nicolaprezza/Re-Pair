@@ -110,7 +110,7 @@ public:
 	 */
 	cpair max(){
 
-		if(n==0) return NULLPAIR;
+		if(current_size==0) return NULLPAIR;
 
 		itype max_F = 0;
 		cpair max_pair = NULLPAIR;
@@ -146,7 +146,7 @@ public:
 
 		assert(not contains(ab));
 
-		n--;
+		current_size--;
 
 	}
 
@@ -163,7 +163,7 @@ public:
 	 */
 	itype size(){
 
-		return n;
+		return current_size;
 
 	}
 
@@ -193,7 +193,9 @@ public:
 
 		pairs_in_hash.push_back(ab);
 
-		n++;
+		current_size++;
+		peak_size = current_size > peak_size ? current_size : peak_size;
+
 
 		//there is at least one pair in the queue (ab), so MAX and MIN must be defined
 		assert(max() != NULLPAIR);
@@ -229,6 +231,13 @@ public:
 		return NULLPAIR;
 	}
 
+	/*
+	 * return max number of stored pairs at any point in time
+	 */
+	itype peak(){
+		return peak_size;
+	}
+
 private:
 
 	itype min_freq;
@@ -236,11 +245,12 @@ private:
 	hash_t H;
 	vector<cpair> pairs_in_hash;
 
+	itype current_size=0;
+	itype peak_size = 0;
+
 	const itype null = ~itype(0);
 
 	const cpair NULLPAIR = {null,null};
-
-	itype n = 0;//number of pairs in queue
 
 };
 
