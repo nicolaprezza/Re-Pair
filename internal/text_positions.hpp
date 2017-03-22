@@ -39,7 +39,6 @@ public:
 	using el_type = ll_el_t;
 	using ipair = pair<itype,itype>;
 	using cpair = pair<ctype,ctype>;
-	using hash_t = std::unordered_map<cpair, vector<itype> >;
 
 	/*
 	 * build new array of text positions with only text positions of pairs with
@@ -56,7 +55,7 @@ public:
 		//hash will be of size maxd*maxd words
 		uint64_t maxd = std::max(uint64_t(std::pow(  T->size(), 0.4  )),uint64_t(T->get_max_symbol()+1));
 
-		//hash to accelerate sorting of pairs
+		//hash to accelerate pair sorting
 		H = vector<vector<ipair> >(maxd,vector<ipair>(maxd,{0,0}));
 
 		this->T = T;
@@ -179,11 +178,9 @@ public:
 	}
 
 	/*
-	 * cluster TP[i,...,j-1] by character pairs
+	 * cluster TP[i,...,j-1] by character pairs. Use fast direct hash for small symbols
 	 */
 	void cluster(itype i, itype j){
-
-		//nlogn_sort(i,j); assert(is_clustered(i,j)); return;
 
 		/*
 		 * if the largest symbol in the text is too big for the hash,
@@ -191,7 +188,8 @@ public:
 		 */
 		if(T->get_max_symbol() >= H.size()){
 
-			nlogn_sort(i,j);
+			cluster1(i,j);
+			//nlogn_sort(i,j);
 			assert(is_clustered(i,j));
 			return;
 
@@ -354,6 +352,146 @@ public:
 		assert(is_clustered(i,j));
 
 	}
+
+
+	/*
+	 * cluster TP[i,...,j-1] by character pairs.
+	 * This procedure uses a hash with collision resolution
+	 * to deal with large symbols
+	 */
+	void cluster1(itype i, itype j){
+
+		unordered_map<cpair,ipair> H1;
+
+		assert(i<size());
+		assert(j<=size());
+		assert(i<j);
+
+		//mark in a bitvector only one position per distinct pair
+		auto distinct_pair_positions = vector<bool>(j-i,false);
+
+		//first step: count frequencies
+		for(itype k = i; k<j; ++k){
+
+			if(not T->is_blank(TP[k])){
+
+				cpair ab = T->pair_starting_at(TP[k]);
+
+				if(ab != nullpair ){
+
+					//write a '1' iff this is the first time we see this pair
+					distinct_pair_positions[k-i] = (H1.count(ab)==0);
+
+					if(H1.count(ab)==0) H1[ab] = {0,0};
+
+					H1[ab].first++;
+
+				}
+
+			}
+
+		}
+
+		itype t = i;//cumulated freq
+
+		//second step: cumulate frequencies
+		for(itype k = i; k<j; ++k){
+
+			if(distinct_pair_positions[k-i]){
+
+				cpair ab = T->pair_starting_at(TP[k]);
+
+				assert(ab != nullpair);
+
+				itype temp = H1[ab].first;
+
+				H1[ab].first = t;
+				H1[ab].second = t;
+
+				t += temp;
+
+			}
+
+		}
+
+		//clear bitvector content
+		for(itype k = i; k<j;++k) distinct_pair_positions[k-i] = false;
+
+		//t is the starting position of null pairs
+
+		itype null_start = t;
+
+		//third step: cluster
+		itype k = i; //current position in TP
+
+		//invariant: TP[i,...,k] is clustered
+		while(k<j){
+
+			cpair ab = T->pair_starting_at(TP[k]);
+
+			itype ab_start;
+			itype ab_end;
+
+			if(ab==nullpair){
+
+				ab_start = null_start;
+				ab_end = t;
+
+			}else{
+
+				ab_start = H1[ab].first;
+				ab_end = H1[ab].second;
+
+			}
+
+			if(k >= ab_start and k <= ab_end){
+
+				//if k is the first position where a distinct pair (other than nullpair)
+				//is seen in the sorted vector, mark it on distinct_pair_positions
+				distinct_pair_positions[k-i] = (k==ab_start and ab!=nullpair);
+
+				//dist_pairs += distinct_pair_positions[k-i];
+
+				//case 1: ab is the right place: increment k
+				k++;
+
+				if(ab==nullpair){
+
+					t += (ab_end == k);
+
+				}else{
+
+					//if k is exactly next ab position, increment next ab position
+					H1[ab].second += (ab_end == k);
+
+				}
+
+			}else{
+
+				//ab has to go to ab_end. swap TP[k] and TP[ab_end]
+				itype temp = TP[k];
+				TP[k] = TP[ab_end];
+				TP[ab_end] = temp;
+
+				if(ab==nullpair){
+
+					t++;
+
+				}else{
+
+					//move forward ab_end since we inserted an ab on top of the list of ab's
+					H1[ab].second++;
+
+				}
+
+			}
+
+		}
+
+		assert(is_clustered(i,j));
+
+	}
+
 
 	/*
 	 * cluster all array

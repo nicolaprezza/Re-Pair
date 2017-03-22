@@ -34,7 +34,6 @@
  */
 
 #include <ll_vec.hpp>
-#include <unordered_map>
 #include <ll_el.hpp>
 #include <pair_hash.hpp>
 
@@ -56,7 +55,6 @@ public:
 	typedef pair_hash<triple_t,itype,ctype> hash_t;
 
 	using cpair = pair<ctype,ctype>;
-	//using hash_t = std::unordered_map<cpair, itype>;
 
 	/*
 	 * default constructor. Note that object must be created with the other constructor in order to be

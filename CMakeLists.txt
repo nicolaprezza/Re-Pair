@@ -11,6 +11,7 @@ endif()
 project (repair)
 
 include_directories(${PROJECT_SOURCE_DIR}/internal)
+include_directories(${PROJECT_SOURCE_DIR})
 
 message("Building in ${CMAKE_BUILD_TYPE} mode")
 

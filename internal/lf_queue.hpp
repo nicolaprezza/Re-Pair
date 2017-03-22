@@ -51,7 +51,6 @@
 
 using namespace std;
 
-
 /*
  * template on linked list type and integer type
  */
@@ -77,6 +76,7 @@ public:
 
 	//value of hash elements: pair <frequency, offset>. The element is accessed as F[frequency].list[offset]
 	using hash_t = std::unordered_map<cpair, h_el_t>;
+	//using hash_t = dense_hash_map<cpair, h_el_t>;
 
 	using int_type = itype;
 	using char_type = ctype;
@@ -94,7 +94,7 @@ public:
 
 	}
 
-	lf_queue(itype max_size, itype max_freq) {
+	lf_queue(itype max_freq) {
 
 		assert(max_freq>0);
 
@@ -109,9 +109,6 @@ public:
 		is_sorted = vector<bool>(max_freq+1,false);
 
 		MAX = max_freq;
-
-		H = hash_t(max_size*2);
-		H.max_load_factor(0.6);
 
 	}
 
@@ -379,6 +376,7 @@ private:
 
 	const itype null = ~ctype(0);
 	const cpair NULLPAIR = {null,null};
+	const cpair VOIDPAIR = {null-1,null-1};
 
 };
 

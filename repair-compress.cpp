@@ -463,16 +463,12 @@ void compute_repair(string in){
 		n = file.tellg();
 	}
 
-	//max high frequency queue capacity
-	uint64_t max_lfq_capacity = n/B;
-
 	min_high_frequency = std::pow(  n, alpha  );// n^(alpha)
 
 	min_high_frequency = min_high_frequency <2 ? 2 : min_high_frequency;
 
 	cout << "File size = " << n << " characters"  << endl;
 	cout << "cut-off frequency = " << min_high_frequency  << endl;
-	cout << "low-frequency queue capacity = " << max_lfq_capacity  << endl;
 
 	itype width = 64 - __builtin_clzll(uint64_t(n));
 
@@ -607,7 +603,7 @@ void compute_repair(string in){
 
 	cout << "Filling low-frequency queue ... " << flush;
 
-	lf_q_t LFQ(max_lfq_capacity,min_high_frequency-1);
+	lf_q_t LFQ(min_high_frequency-1);
 
 	f = 1;
 
