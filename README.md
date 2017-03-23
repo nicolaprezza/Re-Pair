@@ -1,12 +1,12 @@
-Space-efficient computation of the Re-Pair grammar
+rp: space-efficient computation of the Re-Pair grammar
 ===============
 Author: Nicola Prezza (nicola.prezza@gmail.com)
 
-From the paper: Bille P, Gørtz IL, Prezza N. Space-Efficient Re-Pair Compression. arXiv preprint arXiv:1611.01479. 2016 Nov 4. (accepted at DCC 2017)
+From the paper: Bille P, Gørtz IL, Prezza N. Space-Efficient Re-Pair Compression. Data Compression Conference 2017, Snowbird (UT).
 
 ### Description
 
-This code computes the Re-Pair grammar of a input ASCII file using roughly 6n Bytes of RAM during execution, where n is the file length. Running time is linear. 
+The tool 'rp' computes the Re-Pair grammar of a input ASCII file using roughly 6n Bytes of RAM during execution, where n is the file length. Running time is linear. The final grammar is furthermore compressed in order to produce a very small compressed file. The tool compresses particularly well extremely repetitive files: for compression rates >5000x, the output file is usually much smaller than that produced by 7-Zip. Running time of rp is, however, one order of magnitude higher than that of 7-Zip.
 
 ### Download
 
@@ -16,7 +16,7 @@ To clone the repository, call
 
 ### Compile
 
-The library has been tested under linux using gcc 5.4.0. 
+The tool has been tested under linux compiling with gcc 6.2.0
 
 You can use use cmake to generate the Makefile. Create a build folder in the main Re-Pair folder:
 
@@ -34,11 +34,11 @@ and compile:
 
 After compiling, run 
 
->  rp c input.txt
+>  ./rp c input.txt
 
 This command produces the compressed file input.txt.rp. To decompress, run
 
->  rp d input.txt.rp
+>  ./rp d input.txt.rp
 
 This command produces the decompressed file input.txt
 
