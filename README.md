@@ -34,11 +34,11 @@ and compile:
 
 After compiling, run 
 
->  repair-compress input.txt
+>  rp c input.txt
 
 This command produces the compressed file input.txt.rp. To decompress, run
 
->  repair-decompress input.txt.rp
+>  rp d input.txt.rp
 
-This command produces the decompressed file input.txt.rp.decompressed
+This command produces the decompressed file input.txt
 

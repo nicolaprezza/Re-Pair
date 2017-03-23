@@ -14,7 +14,7 @@
  *   GNU General Public License for more details (<http://www.gnu.org/licenses/>).
  *
  *
- * repair.cpp
+ * rp.cpp
  *
  *  Created on: Jan 11, 2017
  *      Author: nico
@@ -25,6 +25,7 @@
 #include <iostream>
 #include <vector>
 #include <set>
+#include <stack>
 
 #include <lf_queue.hpp>
 
@@ -43,10 +44,12 @@ using namespace std;
 
 void help(){
 
-	cout << "Compress a file using the Re-Pair grammar. Space usage: roughly 6n Bytes of RAM, where n < 2^32 is the file size." << endl << endl;
-	cout << "Usage: repair <input> [output]" << endl;
-	cout << "   <input>   input text file" << endl;
-	cout << "   [output]  optional output file name. If not specified, output is saved to input.rp" << endl;
+	cout << "Compressor and decompressor based on the Re-Pair grammar. Space usage: roughly 6n Bytes of RAM, where n < 2^32 is the file size." << endl << endl;
+	cout << "Usage: rp <c|d> <input> [output]" << endl;
+	cout << "   c         compress <input>" << endl;
+	cout << "   d         decompress <input>" << endl;
+	cout << "   <input>   input text file (compression mode) or rp archive (decompression mode)" << endl;
+	cout << "   [output]  optional output file name. If not specified, suffix .rp is added (compression) or removed (decompression)" << endl;
 	exit(0);
 
 }
@@ -678,36 +681,148 @@ void compute_repair(string in){
 
 }
 
+void decompress(vector<itype> & A, vector<pair<itype,itype> > & G, vector<itype> & Tc, ofstream & ofs){
+
+	std::stack<itype> S;
+
+	string buffer;
+	int buf_size = 1000000;//1 MB buffer
+
+	/*
+	 * decompress Tc symbols one by one
+	 */
+	for(itype i = 0;i<Tc.size();++i){
+
+		S.push(Tc[i]);
+
+		while(!S.empty()){
+
+			itype X = S.top(); //get symbol
+			S.pop();//remove top
+
+			if(X<A.size()){
+
+				char c = A[X];
+
+				buffer.push_back(c);
+
+				if(buffer.size()==buf_size){
+
+					ofs.write(buffer.c_str(),buffer.size());
+					buffer = string();
+
+				}
+
+			}else{
+
+				//expand rule: X -> ab
+				auto ab = G[X-A.size()];
+
+				S.push(ab.second);
+				S.push(ab.first);
+
+			}
+
+		}
+
+	}
+
+	if(buffer.size()>0) ofs.write(buffer.c_str(),buffer.size());
+
+}
 
 int main(int argc,char** argv) {
 
-	if(argc!=3 and argc != 2) help();
+	if(argc!=3 and argc != 4) help();
 
-	string in(argv[1]);
+	string mode(argv[1]);
 
+	string in(argv[2]);
 	string out;
 
-	if(argc == 3){
+	if(argc == 4){
 
-		out = string(argv[2]);
+		//use output name provided by user
+		out = string(argv[3]);
 
 	}else{
 
-		out = string(argv[1]);
-		out.append(".rp");
+		out = string(argv[2]);
+
+		if(mode.compare("c")==0){
+
+			//if compress mode, append .rp
+			out.append(".rp");
+
+		}else if(mode.compare("d")==0){
+
+
+			//if decompress mode, extract extension (if any)
+			size_t dot = out.find_last_of(".");
+			if (dot != std::string::npos){
+
+				string name = out.substr(0, dot);
+				string ext  = out.substr(dot, out.size() - dot);
+
+				//if extension = .rp, remove it. Otherwise, add extension .decompressed
+				if(ext.compare(".rp") == 0){
+
+					out = name;
+
+				}else{
+
+					out.append(".decompressed");
+
+				}
+
+			}
+
+		}else{
+
+			help();
+
+		}
 
 	}
 
 	if(not ifstream(in).good()) help();
 
-	cout << "Compressing file " << in << endl;
-	cout << "Output will be saved to file " << out << endl<<endl;
 
-	compute_repair(in);
+	if(mode.compare("c")==0){
 
-	packed_gamma_file3<> out_file(out);
-	//compress the grammar with Elias' gamma-encoding and store it to file
-	out_file.compress_and_store(A,G,T_vec);
+		cout << "Compressing file " << in << endl;
+		cout << "Output will be saved to file " << out << endl<<endl;
+
+		compute_repair(in);
+
+		packed_gamma_file3<> out_file(out);
+		//compress the grammar with Elias' gamma-encoding and store it to file
+		out_file.compress_and_store(A,G,T_vec);
+
+	}else{
+
+		cout << "Decompressing archive " << in << endl;
+		cout << "Output will be saved to " << out << endl;
+
+		auto pgf = packed_gamma_file3<>(in, false);
+
+		vector<itype> A;
+		vector<pair<itype,itype> > G;
+		vector<itype> Tc;
+
+		//read and decompress grammar (the DAG)
+		pgf.read_and_decompress(A,G,Tc);
+
+		ofstream ofs(out);
+
+		//expand the grammar to file
+		decompress(A,G,Tc,ofs);
+
+		ofs.close();
+
+		cout << "done." << endl;
+
+	}
 
 }
 
