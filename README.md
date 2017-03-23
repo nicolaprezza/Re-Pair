@@ -1,4 +1,4 @@
-rp: space-efficient computation of the Re-Pair grammar
+rp: a space-efficient compressor based on the Re-Pair grammar
 ===============
 Author: Nicola Prezza (nicola.prezza@gmail.com)
 
