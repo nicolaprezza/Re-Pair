@@ -239,16 +239,27 @@ public:
 
 		uint64_t g = G.size();
 		uint64_t t = T.size();
+		uint64_t s = A.size();
+		uint64_t log_s = (64 - __builtin_clzll(uint64_t(A.size())));
 		uint64_t log_g = (64 - __builtin_clzll(uint64_t(g)));
 		uint64_t log_gs = (64 - __builtin_clzll(uint64_t(g+A.size())));
+		double min_bits_rule = (double(log_g)+0.557);
 
 		auto bits_per_rule = double(wr - log_gs*t)/g;
+
+		double inf_min = g*min_bits_rule + t*log_gs + s*log_s;
 
 		cout << "Compressed file size : " << wr/8 << " Bytes" << endl;
 		cout << "Grammar size : g = " << g << " rules" << endl;
 		cout << "Number of characters in the final text : t = " << t << endl;
 		cout << "log_2 g = " << log_g << endl;
-		cout << bits_per_rule << " bits per grammar rule" << endl;
+		cout << starting_values.size() << " increasing sequences" << endl << endl;
+
+		cout << "information-theoretic minimum number of bits per alphabet character (log(sigma)) = " << log_s << endl;
+		cout << "information-theoretic minimum number of bits per rule (log g + 0.557) = " << min_bits_rule << endl;
+		cout << "information-theoretic minimum number of bits per final text character (log(g+sigma)) = " << log_gs << endl;
+		cout << "information-theoretic minimum number of bits to store the compressed file (grammar+text+alphabet) = " << inf_min << endl;
+		cout << "compression rate of grammar+text+alphabet (100*actual bitsize/information-theoretic minimum) = " << 100*double(wr)/double(inf_min) << " %" << endl;
 		cout << "Overhead w.r.t. bitsize of stored integers (prefix encoding): " << overhead() << "%" << endl;
 
 	}
